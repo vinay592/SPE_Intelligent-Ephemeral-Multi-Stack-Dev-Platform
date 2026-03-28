@@ -9,7 +9,6 @@ app = Flask(__name__)
 def home():
     return "Dev Platform Backend Running"
 
-
 @app.route('/create-env', methods=['POST'])
 def create_env():
     data = request.json
@@ -20,14 +19,43 @@ def create_env():
 
     env_id = str(uuid.uuid4())[:6]
 
-    print(f"Creating environment {env_id} with {stack}")
+    deployment_yaml = f"""
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: env-{env_id}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: env-{env_id}
+  template:
+    metadata:
+      labels:
+        app: env-{env_id}
+    spec:
+      containers:
+      - name: flask-container
+        image: flask-env
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 5001
+        resources:
+          limits:
+            memory: "{memory}"
+            cpu: "{cpu}"
+"""
 
-    os.system("kubectl apply -f ../k8s/deployment.yaml")
+    file_path = f"/tmp/env-{env_id}.yaml"
+
+    with open(file_path, "w") as f:
+        f.write(deployment_yaml)
+
+    os.system(f"kubectl apply -f {file_path}")
 
     return jsonify({
         "env_id": env_id,
-        "status": "created",
-        "stack": stack
+        "status": "created"
     })
 
 
