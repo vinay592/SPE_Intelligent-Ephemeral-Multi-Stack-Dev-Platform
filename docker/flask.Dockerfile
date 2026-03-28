@@ -2,9 +2,9 @@ FROM python:3.9
 
 WORKDIR /app
 
-COPY ../backend /app
+COPY templates/flask /app
 
-RUN pip install flask
+RUN pip install -r requirements.txt
 
 EXPOSE 5001
 
