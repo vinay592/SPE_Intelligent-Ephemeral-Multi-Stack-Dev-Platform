@@ -13,7 +13,8 @@ spec:
         app: flask-env
     spec:
       containers:
-      - name: flask-container
-        image: nginx
-        ports:
-        - containerPort: 80
+         - name: flask-container
+           image: flask-env
+           imagePullPolicy: Never
+           ports:
+           - containerPort: 5001
