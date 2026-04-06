@@ -1,8 +1,17 @@
 from flask import Flask, request, jsonify
-import os
 import uuid
+import subprocess
 
 app = Flask(__name__)
+
+STACK_CONFIG = {
+    "flask": {"image": "flask-env:v1", "port": 5001},
+    "mern": {"image": "mern-env:v1", "port": 3000},
+    "java": {"image": "java-env:v1", "port": 8082},
+    "ml": {"image": "ml-env:v1", "port": 8888}
+}
+
+NAMESPACE = "dev-platform"
 
 
 @app.route('/')
@@ -12,40 +21,32 @@ def home():
 
 @app.route('/create-env', methods=['POST'])
 def create_env():
-    data = request.json
+    try:
+        data = request.json
 
-    stack = data.get("stack")
-    cpu = data.get("cpu", "500m")
-    memory = data.get("memory", "512Mi")
+        if not data or "stack" not in data:
+            return jsonify({"error": "Stack is required"}), 400
 
-    env_id = str(uuid.uuid4())[:6]
+        stack = data["stack"]
 
-    #  Stack Mapping
-    if stack == "flask":
-        image = "flask-env"
-        port = 5001
+        if stack not in STACK_CONFIG:
+            return jsonify({"error": "Invalid stack"}), 400
 
-    elif stack == "mern":
-        image = "mern-env"
-        port = 3000
+        cpu = data.get("cpu", "500m")
+        memory = data.get("memory", "512Mi")
 
-    elif stack == "java":
-        image = "java-env"
-        port = 8082
+        env_id = str(uuid.uuid4())[:6]
 
-    elif stack == "ml":
-        image = "ml-env"
-        port = 8888
+        config = STACK_CONFIG[stack]
+        image = config["image"]
+        port = config["port"]
 
-    else:
-        return jsonify({"error": "Invalid stack"}), 400
-
-    #  Dynamic Deployment YAML
-    deployment_yaml = f"""
+        deployment_yaml = f"""
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: env-{env_id}
+  namespace: {NAMESPACE}
 spec:
   replicas: 1
   selector:
@@ -59,7 +60,6 @@ spec:
       containers:
       - name: app-container
         image: {image}
-        imagePullPolicy: Never
         ports:
         - containerPort: {port}
         resources:
@@ -68,14 +68,14 @@ spec:
             cpu: "{cpu}"
 """
 
-    # 🔥 Dynamic Service YAML
-    node_port = 30000 + int(env_id[:3], 16) % 2000
+        node_port = 30000 + int(env_id[:3], 16) % 2000
 
-    service_yaml = f"""
+        service_yaml = f"""
 apiVersion: v1
 kind: Service
 metadata:
   name: svc-{env_id}
+  namespace: {NAMESPACE}
 spec:
   type: NodePort
   selector:
@@ -86,37 +86,51 @@ spec:
       nodePort: {node_port}
 """
 
-    # Save files
-    dep_file = f"/tmp/deploy-{env_id}.yaml"
-    svc_file = f"/tmp/service-{env_id}.yaml"
+        dep_file = f"/tmp/deploy-{env_id}.yaml"
+        svc_file = f"/tmp/service-{env_id}.yaml"
 
-    with open(dep_file, "w") as f:
-        f.write(deployment_yaml)
+        with open(dep_file, "w") as f:
+            f.write(deployment_yaml)
 
-    with open(svc_file, "w") as f:
-        f.write(service_yaml)
+        with open(svc_file, "w") as f:
+            f.write(service_yaml)
 
-    # Apply to Kubernetes
-    os.system(f"kubectl apply -f {dep_file}")
-    os.system(f"kubectl apply -f {svc_file}")
+        subprocess.run(["kubectl", "apply", "-f", dep_file], check=True)
+        subprocess.run(["kubectl", "apply", "-f", svc_file], check=True)
 
-    return jsonify({
-        "env_id": env_id,
-        "stack": stack,
-        "status": "created",
-        "access_port": node_port
-    })
+        return jsonify({
+            "env_id": env_id,
+            "stack": stack,
+            "status": "created",
+            "access_port": node_port
+        })
+
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": "Kubernetes deployment failed"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/delete-env/<env_id>', methods=['DELETE'])
 def delete_env(env_id):
-    os.system(f"kubectl delete deployment env-{env_id}")
-    os.system(f"kubectl delete service svc-{env_id}")
+    try:
+        subprocess.run(
+            ["kubectl", "delete", "deployment", f"env-{env_id}", "-n", NAMESPACE],
+            check=True
+        )
+        subprocess.run(
+            ["kubectl", "delete", "service", f"svc-{env_id}", "-n", NAMESPACE],
+            check=True
+        )
 
-    return jsonify({
-        "env_id": env_id,
-        "status": "deleted"
-    })
+        return jsonify({
+            "env_id": env_id,
+            "status": "deleted"
+        })
+
+    except subprocess.CalledProcessError:
+        return jsonify({"error": "Deletion failed"}), 500
 
 
 if __name__ == '__main__':

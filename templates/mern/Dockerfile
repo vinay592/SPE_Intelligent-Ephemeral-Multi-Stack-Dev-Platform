@@ -2,7 +2,7 @@ FROM node:18
 
 WORKDIR /app
 
-COPY templates/mern /app
+COPY . .
 
 RUN npm install
 

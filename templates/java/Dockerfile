@@ -2,7 +2,7 @@ FROM eclipse-temurin:17
 
 WORKDIR /app
 
-COPY templates/java /app
+COPY . .
 
 RUN javac app.java
 
