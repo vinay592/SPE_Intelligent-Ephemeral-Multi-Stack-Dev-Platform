@@ -13,7 +13,7 @@ pipeline {
 
         stage('Clone Repo') {
             steps {
-                git 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
+                git branch: 'main', url: 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
             }
         }
 
