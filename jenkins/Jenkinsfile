@@ -2,17 +2,17 @@ pipeline {
     agent any
 
     parameters {
-    	choice(
-        	name: 'STACK',
-        	choices: ['flask', 'mern', 'java', 'ml'],
-        	description: 'Choose stack'
-    	)
-    	string(
-        	name: 'USER_ID',
-        	defaultValue: 'vinay',
-        	description: 'Enter user name'
-    	)
-     }
+        choice(
+            name: 'STACK',
+            choices: ['flask', 'mern', 'java', 'ml'],
+            description: 'Choose stack'
+        )
+        string(
+            name: 'USER_ID',
+            defaultValue: 'vinay',
+            description: 'Enter user name'
+        )
+    }
 
     stages {
 
@@ -33,7 +33,17 @@ pipeline {
                 else
                     echo "Starting backend 🚀"
                     nohup python3 backend/app.py > backend.log 2>&1 &
-                    sleep 5
+                    
+                    echo "Waiting for backend to be ready..."
+                    for i in {1..10}
+                    do
+                        if curl -s http://localhost:5001 > /dev/null
+                        then
+                            echo "Backend is ready ✅"
+                            break
+                        fi
+                        sleep 2
+                    done
                 fi
                 '''
             }
@@ -44,6 +54,15 @@ pipeline {
                 sh '''
                 eval $(minikube docker-env)
                 docker build -t ${STACK}-env:v1 templates/${STACK}
+                '''
+            }
+        }
+
+        stage('Security Scan (Trivy)') {
+            steps {
+                sh '''
+                echo "Running Trivy scan 🔐..."
+                trivy image --severity HIGH,CRITICAL ${STACK}-env:v1 || true
                 '''
             }
         }
@@ -60,13 +79,31 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "DEPLOYMENT RESPONSE: ${response}"
+                    echo "📦 Deployment Response:"
+                    echo "${response}"
 
-                    // Extract port (simple parsing)
+                    // Extract port
                     def port = response.split('"access_port":')[1].split(',')[0].trim()
 
-                    echo "🌐 ACCESS YOUR APP HERE:"
-                    echo "http://localhost:${port}"
+                    env.APP_PORT = port
+
+                    echo "🚀 Environment Ready!"
+                    echo "User: ${params.USER_ID}"
+                    echo "Stack: ${params.STACK}"
+                    echo "URL: http://localhost:${port}"
+                }
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    echo "Checking app health ❤️..."
+                    sleep 5
+
+                    sh """
+                    curl -f http://localhost:${env.APP_PORT}
+                    """
                 }
             }
         }
