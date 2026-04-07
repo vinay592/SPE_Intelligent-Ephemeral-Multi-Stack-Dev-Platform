@@ -7,10 +7,10 @@ import time
 app = Flask(__name__)
 
 STACK_CONFIG = {
-    "flask": {"image": "flask-env:v1", "port": 5001},
-    "mern": {"image": "mern-env:v1", "port": 3000},
-    "java": {"image": "java-env:v1", "port": 8082},
-    "ml": {"image": "ml-env:v1", "port": 8888}
+    "flask": {"image": "vinayvb18/flask-env:v1", "port": 5001},
+    "mern": {"image": "vinayvb18/mern-env:v1", "port": 3000},
+    "java": {"image": "vinayvb18/java-env:v1", "port": 8082},
+    "ml": {"image": "vinayvb18/ml-env:v1", "port": 8888}
 }
 
 NAMESPACE = "dev-platform"
