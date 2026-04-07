@@ -154,7 +154,7 @@ spec:
         print("Active Envs:", active_envs, flush=True)
 
         # ✅ START TTL THREAD
-        ttl_seconds = 60   # 🔥 change to 1800 later
+        ttl_seconds = 1800   # 🔥 change to 1800 later
 
         threading.Thread(
             target=delete_env_after_ttl,
