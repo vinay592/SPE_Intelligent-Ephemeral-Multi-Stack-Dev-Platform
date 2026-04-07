@@ -86,7 +86,14 @@ stage('Trigger Deployment') {
                     echo "Checking app health ❤️..."
                     sleep 5
 
-                    sh "curl -f http://localhost:${env.APP_PORT}"
+                    def url = sh(
+    			script: "minikube service ${params.USER_ID}-${params.STACK}-svc -n dev-platform --url",
+    			returnStdout: true
+			).trim()
+
+		    echo "Service URL: ${url}"
+
+                    sh "curl -f ${url}"
                 }
             }
         }
