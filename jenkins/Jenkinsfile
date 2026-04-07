@@ -34,17 +34,10 @@ pipeline {
             }
         }
 
-        stage('Set Minikube Docker Env') {
+        stage('Set Minikube Docker Env + Build Image') {
             steps {
                 sh '''
                 eval $(minikube docker-env)
-                '''
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                sh '''
                 docker build -t ${STACK}-env:v1 templates/${STACK}
                 '''
             }
@@ -63,11 +56,16 @@ pipeline {
                     ).trim()
 
                     echo "DEPLOYMENT RESPONSE: ${response}"
+
+                    // Extract port (simple parsing)
+                    def port = response.split('"access_port":')[1].split(',')[0].trim()
+
+                    echo "🌐 ACCESS YOUR APP HERE:"
+                    echo "http://localhost:${port}"
                 }
             }
         }
-
-        
+    }
 
     post {
         success {
