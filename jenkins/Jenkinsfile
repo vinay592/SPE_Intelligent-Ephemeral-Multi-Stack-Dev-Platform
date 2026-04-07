@@ -11,11 +11,42 @@ pipeline {
 
     stages {
 
+        stage('Clone Repo') {
+            steps {
+                git branch: 'main', url: 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
+            }
+        }
+
+        stage('Ensure Backend Running') {
+            steps {
+                sh '''
+                echo "Checking if backend is running..."
+
+                if lsof -i:5001 | grep LISTEN
+                then
+                    echo "Backend already running ✅"
+                else
+                    echo "Starting backend 🚀"
+                    nohup python3 backend/app.py > backend.log 2>&1 &
+                    sleep 5
+                fi
+                '''
+            }
+        }
+
+        stage('Set Minikube Docker Env') {
+            steps {
+                sh '''
+                eval $(minikube docker-env)
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
-                sh """
-                docker build -t ${params.STACK}-env:v1 templates/${params.STACK}
-                """
+                sh '''
+                docker build -t ${STACK}-env:v1 templates/${STACK}
+                '''
             }
         }
 
@@ -26,13 +57,22 @@ pipeline {
                         script: """
                         curl -s -X POST http://localhost:5001/create-env \
                         -H "Content-Type: application/json" \
-                        -d '{"stack":"${params.STACK}"}'
+                        -d '{"stack":"${STACK}"}'
                         """,
                         returnStdout: true
                     ).trim()
 
-                    echo "🚀 DEPLOYMENT RESPONSE: ${response}"
+                    echo "DEPLOYMENT RESPONSE: ${response}"
                 }
+            }
+        }
+
+        stage('Show Access Info') {
+            steps {
+                sh '''
+                echo "Fetching services..."
+                kubectl get svc -n dev-platform
+                '''
             }
         }
     }
@@ -41,12 +81,12 @@ pipeline {
         success {
             mail to: 'vinayvb592@gmail.com',
                  subject: "SUCCESS: ${params.STACK}",
-                 body: "Build and deployment successful"
+                 body: "Build + Deployment successful 🚀"
         }
         failure {
             mail to: 'vinayvb592@gmail.com',
                  subject: "FAILED: ${params.STACK}",
-                 body: "Something went wrong"
+                 body: "Something went wrong ❌"
         }
     }
 }
