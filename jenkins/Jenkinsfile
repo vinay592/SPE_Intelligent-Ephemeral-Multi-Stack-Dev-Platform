@@ -20,15 +20,22 @@ pipeline {
         }
 
         stage('Trigger Deployment') {
-            steps {
-                sh """
-                curl -X POST http://localhost:5001/create-env \
+    steps {
+        script {
+            def response = sh(
+                script: """
+                curl -s -X POST http://localhost:5001/create-env \
                 -H "Content-Type: application/json" \
                 -d '{"stack":"${params.STACK}"}'
-                """
-            }
+                """,
+                returnStdout: true
+            ).trim()
+
+            echo "🚀 DEPLOYMENT RESPONSE: ${response}"
         }
     }
+}
+    
     
     post {
         success {
