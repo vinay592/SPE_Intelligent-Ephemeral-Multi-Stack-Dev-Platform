@@ -28,10 +28,10 @@ pipeline {
         stage('Trigger Deployment') {
             steps {
                 sh """
-                curl -X POST http://host.docker.internal:5001/create-env \
-                -H "Content-Type: application/json" \
-                -d '{"stack":"${params.STACK}"}'
-                """
+		curl -X POST http://localhost:5001/create-env \
+		-H "Content-Type: application/json" \
+		-d '{"stack":"${params.STACK}"}'
+		"""
             }
         }
     }
