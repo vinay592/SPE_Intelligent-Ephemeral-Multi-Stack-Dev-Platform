@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'STACK',
+            choices: ['flask', 'mern', 'java', 'ml'],
+            description: 'Choose stack'
+        )
+    }
+
+    stages {
+
+        stage('Clone Repo') {
+            steps {
+                git 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh """
+                docker build -t ${params.STACK}-env:v1 templates/${params.STACK}
+                """
+            }
+        }
+
+        stage('Trigger Deployment') {
+            steps {
+                sh """
+                curl -X POST http://host.docker.internal:5001/create-env \
+                -H "Content-Type: application/json" \
+                -d '{"stack":"${params.STACK}"}'
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            mail to: 'vinayvb592@gmail.com',
+                 subject: "SUCCESS: ${params.STACK}",
+                 body: "Build and deployment successful"
+        }
+        failure {
+            mail to: 'vinayvb592@gmail.com',
+                 subject: "FAILED: ${params.STACK}",
+                 body: "Something went wrong"
+        }
+    }
+}
