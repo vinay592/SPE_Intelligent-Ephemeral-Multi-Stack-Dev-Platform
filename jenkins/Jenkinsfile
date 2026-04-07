@@ -67,15 +67,7 @@ pipeline {
             }
         }
 
-        stage('Show Access Info') {
-            steps {
-                sh '''
-                echo "Fetching services..."
-                kubectl get svc -n dev-platform
-                '''
-            }
-        }
-    }
+        
 
     post {
         success {
