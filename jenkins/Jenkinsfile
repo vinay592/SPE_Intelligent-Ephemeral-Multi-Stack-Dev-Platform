@@ -2,12 +2,17 @@ pipeline {
     agent any
 
     parameters {
-        choice(
-            name: 'STACK',
-            choices: ['flask', 'mern', 'java', 'ml'],
-            description: 'Choose stack'
-        )
-    }
+    	choice(
+        	name: 'STACK',
+        	choices: ['flask', 'mern', 'java', 'ml'],
+        	description: 'Choose stack'
+    	)
+    	string(
+        	name: 'USER_ID',
+        	defaultValue: 'vinay',
+        	description: 'Enter user name'
+    	)
+     }
 
     stages {
 
@@ -50,7 +55,7 @@ pipeline {
                         script: """
                         curl -s -X POST http://localhost:5001/create-env \
                         -H "Content-Type: application/json" \
-                        -d '{"stack":"${STACK}"}'
+                        -d '{"stack":"${STACK}", "user":"${USER_ID}"}'
                         """,
                         returnStdout: true
                     ).trim()

@@ -23,7 +23,8 @@ def home():
 def create_env():
     try:
         data = request.json
-
+        user = data.get("user", "default")
+        print("User:", user)
         if not data or "stack" not in data:
             return jsonify({"error": "Stack is required"}), 400
 
