@@ -55,7 +55,7 @@ pipeline {
                         script: """
                         curl -s -X POST http://localhost:5001/create-env \
                         -H "Content-Type: application/json" \
-                        -d '{"stack":"${STACK}", "user":"${USER_ID}"}'
+                        -d '{"stack":"${params.STACK}", "user":"${params.USER_ID}"}'
                         """,
                         returnStdout: true
                     ).trim()
