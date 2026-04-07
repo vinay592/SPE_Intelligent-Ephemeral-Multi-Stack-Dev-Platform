@@ -25,6 +25,11 @@ def create_env():
         data = request.json
 
         user = data.get("user", "default")
+        # limit environments per user
+        if user in active_envs and len(active_envs[user]) >= 3:
+            return jsonify({
+                "error": "Environment limit reached (max 3 per user)"
+            }), 400
         print("User:", user, flush=True)
 
         if not data or "stack" not in data:
