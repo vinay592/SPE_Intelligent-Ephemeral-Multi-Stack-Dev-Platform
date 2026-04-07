@@ -15,8 +15,9 @@ STACK_CONFIG = {
 
 NAMESPACE = "dev-platform"
 active_envs = {}
+active_color = {}
 
-# ✅ TTL DELETE FUNCTION
+# TTL DELETE FUNCTION
 def delete_env_after_ttl(env_name, user, ttl):
     time.sleep(ttl)
 
@@ -24,11 +25,6 @@ def delete_env_after_ttl(env_name, user, ttl):
 
     subprocess.run(
         ["kubectl", "delete", "deployment", env_name, "-n", NAMESPACE],
-        check=False
-    )
-
-    subprocess.run(
-        ["kubectl", "delete", "service", f"{env_name}-svc", "-n", NAMESPACE],
         check=False
     )
 
@@ -47,29 +43,7 @@ def home():
 def create_env():
     try:
         data = request.json
-
         user = data.get("user", "default")
-
-        # ✅ AUTO DELETE OLDEST
-        if user in active_envs and len(active_envs[user]) >= 3:
-
-            oldest_env = active_envs[user][0]
-
-            print("Deleting oldest:", oldest_env, flush=True)
-
-            subprocess.run(
-                ["kubectl", "delete", "deployment", oldest_env, "-n", NAMESPACE],
-                check=False
-            )
-
-            subprocess.run(
-                ["kubectl", "delete", "service", f"{oldest_env}-svc", "-n", NAMESPACE],
-                check=False
-            )
-
-            active_envs[user].pop(0)
-
-        print("User:", user, flush=True)
 
         if not data or "stack" not in data:
             return jsonify({"error": "Stack is required"}), 400
@@ -79,16 +53,32 @@ def create_env():
         if stack not in STACK_CONFIG:
             return jsonify({"error": "Invalid stack"}), 400
 
+        print("User:", user, flush=True)
+
+        # 🔵🟢 COLOR LOGIC
+        key = f"{user}-{stack}"
+
+        if key not in active_color:
+            color = "blue"
+            active_color[key] = "blue"
+        else:
+            current = active_color[key]
+            color = "green" if current == "blue" else "blue"
+            active_color[key] = color
+
+        print("Color selected:", color, flush=True)
+
         cpu = data.get("cpu", "500m")
         memory = data.get("memory", "512Mi")
 
         env_id = str(uuid.uuid4())[:6]
-        env_name = f"{user}-{stack}-{env_id}"
+        env_name = f"{user}-{stack}-{color}-{env_id}"
 
         config = STACK_CONFIG[stack]
         image = config["image"]
         port = config["port"]
 
+        # DEPLOYMENT YAML
         deployment_yaml = f"""
 apiVersion: apps/v1
 kind: Deployment
@@ -116,13 +106,16 @@ spec:
             cpu: "{cpu}"
 """
 
+        # 🔥 SINGLE SERVICE PER USER-STACK
+        service_name = f"{user}-{stack}-svc"
+
         node_port = 30000 + int(env_id[:3], 16) % 2000
 
         service_yaml = f"""
 apiVersion: v1
 kind: Service
 metadata:
-  name: {env_name}-svc
+  name: {service_name}
   namespace: {NAMESPACE}
 spec:
   type: NodePort
@@ -146,15 +139,28 @@ spec:
         subprocess.run(["kubectl", "apply", "-f", dep_file], check=True)
         subprocess.run(["kubectl", "apply", "-f", svc_file], check=True)
 
+        # TRACK ENV
         if user not in active_envs:
             active_envs[user] = []
 
-        active_envs[user].append(env_name)
+        # 🔥 DELETE OLD VERSION
+        for old_env in active_envs[user]:
+            if f"{user}-{stack}" in old_env and old_env != env_name:
+
+                print("Deleting old version:", old_env, flush=True)
+
+                subprocess.run(
+                    ["kubectl", "delete", "deployment", old_env, "-n", NAMESPACE],
+                    check=False
+                )
+
+        # keep only latest
+        active_envs[user] = [env_name]
 
         print("Active Envs:", active_envs, flush=True)
 
-        # ✅ START TTL THREAD
-        ttl_seconds = 1800   # 🔥 change to 1800 later
+        # TTL
+        ttl_seconds = 1800
 
         threading.Thread(
             target=delete_env_after_ttl,
@@ -165,7 +171,8 @@ spec:
         return jsonify({
             "env_id": env_id,
             "env_name": env_name,
-            "stack": stack,
+            "color": color,
+            "service": service_name,
             "status": "created",
             "access_port": node_port
         })
@@ -175,27 +182,6 @@ spec:
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-@app.route('/delete-env/<env_id>', methods=['DELETE'])
-def delete_env(env_id):
-    try:
-        subprocess.run(
-            ["kubectl", "delete", "deployment", f"env-{env_id}", "-n", NAMESPACE],
-            check=True
-        )
-        subprocess.run(
-            ["kubectl", "delete", "service", f"svc-{env_id}", "-n", NAMESPACE],
-            check=True
-        )
-
-        return jsonify({
-            "env_id": env_id,
-            "status": "deleted"
-        })
-
-    except subprocess.CalledProcessError:
-        return jsonify({"error": "Deletion failed"}), 500
 
 
 if __name__ == '__main__':
