@@ -34,12 +34,12 @@ pipeline {
                     echo "Starting backend 🚀"
                     nohup python3 backend/app.py > backend.log 2>&1 &
 
-                    echo "Waiting for backend to be ready..."
+                    echo "Waiting for backend..."
                     for i in {1..10}
                     do
                         if curl -s http://localhost:5001 > /dev/null
                         then
-                            echo "Backend is ready ✅"
+                            echo "Backend ready ✅"
                             break
                         fi
                         sleep 2
@@ -49,9 +49,31 @@ pipeline {
             }
         }
 
+        stage('Ensure Minikube Running') {
+            steps {
+                sh '''
+                echo "Checking Minikube..."
+
+                export MINIKUBE_HOME=/home/vinay-v-bhandare/.minikube
+                export KUBECONFIG=/home/vinay-v-bhandare/.kube/config
+
+                if minikube status | grep Running
+                then
+                    echo "Minikube already running ✅"
+                else
+                    echo "Starting Minikube 🚀"
+                    minikube start --driver=docker
+                fi
+                '''
+            }
+        }
+
         stage('Set Minikube Docker Env + Build Image') {
             steps {
                 sh '''
+                export MINIKUBE_HOME=/home/vinay-v-bhandare/.minikube
+                export KUBECONFIG=/home/vinay-v-bhandare/.kube/config
+
                 eval $(minikube docker-env)
                 docker build -t ${STACK}-env:v1 templates/${STACK}
                 '''
@@ -99,9 +121,12 @@ pipeline {
                     echo "Checking app health ❤️..."
                     sleep 5
 
-                    // 🔥 FIXED: Use minikube service URL
                     def url = sh(
-                        script: "minikube service ${params.USER_ID}-${params.STACK}-svc -n dev-platform --url",
+                        script: """
+                        export MINIKUBE_HOME=/home/vinay-v-bhandare/.minikube
+                        export KUBECONFIG=/home/vinay-v-bhandare/.kube/config
+                        minikube service ${params.USER_ID}-${params.STACK}-svc -n dev-platform --url
+                        """,
                         returnStdout: true
                     ).trim()
 
