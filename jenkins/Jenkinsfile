@@ -29,6 +29,39 @@ pipeline {
             }
         }
     }
+    stage('Get Service URL') {
+    steps {
+        script {
+            def svcName = sh(
+                script: "kubectl get svc -n dev-platform --no-headers -o custom-columns=\":metadata.name\" | tail -n 1",
+                returnStdout: true
+            ).trim()
+
+            echo "Service Name: ${svcName}"
+
+            def nodePort = sh(
+                script: "kubectl get svc ${svcName} -n dev-platform -o jsonpath='{.spec.ports[0].nodePort}'",
+                returnStdout: true
+            ).trim()
+
+            echo "NodePort: ${nodePort}"
+
+            def minikubeIP = sh(
+                script: "minikube ip",
+                returnStdout: true
+            ).trim()
+
+            def url = "http://${minikubeIP}:${nodePort}"
+
+            echo "🚀 Application URL: ${url}"
+
+            // Try opening browser (works if Jenkins runs on your local machine)
+            sh """
+            xdg-open ${url} || echo "Open manually: ${url}"
+            """
+        }
+    }
+}
 
     post {
         success {
