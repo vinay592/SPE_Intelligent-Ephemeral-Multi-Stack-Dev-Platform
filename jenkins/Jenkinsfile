@@ -57,31 +57,28 @@ pipeline {
             }
         }
 
-        stage('Trigger Deployment') {
-            steps {
-                script {
-                    def response = sh(
-                        script: """
-                        curl -s -X POST http://localhost:5001/create-env \
-                        -H "Content-Type: application/json" \
-                        -d '{"stack":"${params.STACK}", "user":"${params.USER_ID}"}'
-                        """,
-                        returnStdout: true
-                    ).trim()
+stage('Trigger Deployment') {
+    steps {
+        script {
+            def response = sh(
+                script: """
+                curl -s -X POST http://localhost:5001/create-env \
+                -H "Content-Type: application/json" \
+                -d '{"stack":"${params.STACK}", "user":"${params.USER_ID}"}'
+                """,
+                returnStdout: true
+            ).trim()
 
-                    echo "📦 Deployment Response:"
-                    echo response
+            echo "Deployment Response:"
+            echo response
 
-                    def port = response.split('"access_port":')[1].split(',')[0].trim()
-                    env.APP_PORT = port
-
-                    echo "🚀 Environment Ready!"
-                    echo "User: ${params.USER_ID}"
-                    echo "Stack: ${params.STACK}"
-                    echo "Port: ${port}"
-                }
-            }
+            // ✅ FIXED PARSING
+            def json = readJSON text: response
+            def port = json.access_port
+            env.APP_PORT = port
         }
+    }
+}
 
         stage('Health Check') {
             steps {
