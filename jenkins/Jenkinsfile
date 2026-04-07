@@ -39,14 +39,20 @@ pipeline {
             }
         }
 
-        stage('Build Image') {
-            steps {
-                sh '''
-                echo "Building Docker image..."
-                docker build -t ${STACK}-env:v1 templates/${STACK}
-                '''
-            }
-        }
+        stage('Build & Push Image') {
+    		steps {
+        		sh '''
+        		echo "Building image..."
+        		docker build -t ${STACK}-env:v1 templates/${STACK}
+
+        		echo "Tagging image..."
+        		docker tag ${STACK}-env:v1 vinay592/${STACK}-env:v1
+
+        		echo "Pushing to Docker Hub..."
+        		docker push vinay592/${STACK}-env:v1
+        		'''
+    		}
+	}
 
         stage('Security Scan (Trivy)') {
             steps {
