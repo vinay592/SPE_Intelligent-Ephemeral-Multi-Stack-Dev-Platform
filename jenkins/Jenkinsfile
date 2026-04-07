@@ -49,10 +49,10 @@ pipeline {
         		docker build -t ${STACK}-env:v1 templates/${STACK}
 
         		echo "Tagging image..."
-        		docker tag ${STACK}-env:v1 vinay592/${STACK}-env:v1
+        		docker tag ${STACK}-env:v1 vinayvb18/${STACK}-env:v1
 
         		echo "Pushing to Docker Hub..."
-        		docker push vinay592/${STACK}-env:v1
+        		docker push vinayvb18/${STACK}-env:v1
         		'''
     		}
 	}
