@@ -1,37 +1,74 @@
 pipeline {
     agent any
 
-    parameters {
-        choice(
-            name: 'STACK',
-            choices: ['flask', 'mern', 'java', 'ml'],
-            description: 'Choose stack'
-        )
+    environment {
+        STACK = ""
+        REPO_URL = "https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git"
     }
 
     stages {
 
-        stage('Clone Repo') {
+        stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
+                git branch: 'main', url: "${REPO_URL}"
+            }
+        }
+
+        stage('Detect Changed Stack') {
+            steps {
+                script {
+                    def changedFiles = sh(
+                        script: "git diff --name-only HEAD~1 HEAD",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Changed Files: ${changedFiles}"
+
+                    if (changedFiles.contains("templates/flask")) {
+                        env.STACK = "flask"
+                    } 
+                    else if (changedFiles.contains("templates/mern")) {
+                        env.STACK = "mern"
+                    } 
+                    else if (changedFiles.contains("templates/java")) {
+                        env.STACK = "java"
+                    } 
+                    else if (changedFiles.contains("templates/ml")) {
+                        env.STACK = "ml"
+                    } 
+                    else {
+                        env.STACK = "flask" // default fallback
+                    }
+
+                    echo "Detected STACK: ${env.STACK}"
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 sh """
-                docker build -t ${params.STACK}-env:v1 templates/${params.STACK}
+                docker build -t ${env.STACK}-env:v1 templates/${env.STACK}
                 """
             }
         }
 
-        stage('Trigger Deployment') {
+        stage('Trigger Deployment (Backend API)') {
             steps {
                 sh """
-		curl -X POST http://localhost:5001/create-env \
-		-H "Content-Type: application/json" \
-		-d '{"stack":"${params.STACK}"}'
-		"""
+                curl -X POST http://localhost:5001/create-env \
+                -H "Content-Type: application/json" \
+                -d '{"stack":"${env.STACK}"}'
+                """
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh """
+                kubectl get pods -n dev-platform
+                kubectl get svc -n dev-platform
+                """
             }
         }
     }
@@ -39,13 +76,13 @@ pipeline {
     post {
         success {
             mail to: 'vinayvb592@gmail.com',
-                 subject: "SUCCESS: ${params.STACK}",
-                 body: "Build and deployment successful"
+                 subject: "SUCCESS: ${env.STACK} deployed",
+                 body: "Build + Deployment successful for ${env.STACK}"
         }
         failure {
             mail to: 'vinayvb592@gmail.com',
-                 subject: "FAILED: ${params.STACK}",
-                 body: "Something went wrong"
+                 subject: "FAILED: ${env.STACK}",
+                 body: "Pipeline failed. Check Jenkins logs."
         }
     }
 }
