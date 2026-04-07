@@ -33,7 +33,7 @@ pipeline {
                 else
                     echo "Starting backend 🚀"
                     nohup python3 backend/app.py > backend.log 2>&1 &
-                    
+
                     echo "Waiting for backend to be ready..."
                     for i in {1..10}
                     do
@@ -82,15 +82,13 @@ pipeline {
                     echo "📦 Deployment Response:"
                     echo "${response}"
 
-                    // Extract port
                     def port = response.split('"access_port":')[1].split(',')[0].trim()
-
                     env.APP_PORT = port
 
                     echo "🚀 Environment Ready!"
                     echo "User: ${params.USER_ID}"
                     echo "Stack: ${params.STACK}"
-                    echo "URL: http://localhost:${port}"
+                    echo "Port: ${port}"
                 }
             }
         }
@@ -101,9 +99,15 @@ pipeline {
                     echo "Checking app health ❤️..."
                     sleep 5
 
-                    sh """
-                    curl -f http://localhost:${env.APP_PORT}
-                    """
+                    // 🔥 FIXED: Use minikube service URL
+                    def url = sh(
+                        script: "minikube service ${params.USER_ID}-${params.STACK}-svc -n dev-platform --url",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Service URL: ${url}"
+
+                    sh "curl -f ${url}"
                 }
             }
         }
