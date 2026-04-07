@@ -23,8 +23,10 @@ def home():
 def create_env():
     try:
         data = request.json
+
         user = data.get("user", "default")
-        print("User:", user)
+        print("User:", user, flush=True)
+
         if not data or "stack" not in data:
             return jsonify({"error": "Stack is required"}), 400
 
@@ -36,7 +38,11 @@ def create_env():
         cpu = data.get("cpu", "500m")
         memory = data.get("memory", "512Mi")
 
+        # ✅ FIX 1: define env_id first
         env_id = str(uuid.uuid4())[:6]
+
+        # ✅ FIX 2: proper naming
+        env_name = f"{user}-{stack}-{env_id}"
 
         config = STACK_CONFIG[stack]
         image = config["image"]
@@ -46,17 +52,17 @@ def create_env():
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: env-{env_id}
+  name: {env_name}
   namespace: {NAMESPACE}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: env-{env_id}
+      app: {env_name}
   template:
     metadata:
       labels:
-        app: env-{env_id}
+        app: {env_name}
     spec:
       containers:
       - name: app-container
@@ -75,12 +81,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: svc-{env_id}
+  name: {env_name}-svc
   namespace: {NAMESPACE}
 spec:
   type: NodePort
   selector:
-    app: env-{env_id}
+    app: {env_name}
   ports:
     - port: 80
       targetPort: {port}
@@ -101,12 +107,13 @@ spec:
 
         return jsonify({
             "env_id": env_id,
+            "env_name": env_name,
             "stack": stack,
             "status": "created",
             "access_port": node_port
         })
 
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         return jsonify({"error": "Kubernetes deployment failed"}), 500
 
     except Exception as e:
@@ -116,6 +123,7 @@ spec:
 @app.route('/delete-env/<env_id>', methods=['DELETE'])
 def delete_env(env_id):
     try:
+        # ⚠️ TEMP (will fix later properly)
         subprocess.run(
             ["kubectl", "delete", "deployment", f"env-{env_id}", "-n", NAMESPACE],
             check=True
