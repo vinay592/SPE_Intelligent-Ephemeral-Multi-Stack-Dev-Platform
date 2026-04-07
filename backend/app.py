@@ -106,7 +106,7 @@ spec:
         subprocess.run(["kubectl", "apply", "-f", svc_file], check=True)
 
         if user not in active_envs:
-        active_envs[user] = []
+            active_envs[user] = []
 
         active_envs[user].append(env_name)
 
