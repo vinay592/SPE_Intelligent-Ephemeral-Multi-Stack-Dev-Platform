@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
 import uuid
 import subprocess
+import threading
+import time
 
 app = Flask(__name__)
 
@@ -14,6 +16,28 @@ STACK_CONFIG = {
 NAMESPACE = "dev-platform"
 active_envs = {}
 
+# ✅ TTL DELETE FUNCTION
+def delete_env_after_ttl(env_name, user, ttl):
+    time.sleep(ttl)
+
+    print(f"TTL expired. Deleting {env_name}", flush=True)
+
+    subprocess.run(
+        ["kubectl", "delete", "deployment", env_name, "-n", NAMESPACE],
+        check=False
+    )
+
+    subprocess.run(
+        ["kubectl", "delete", "service", f"{env_name}-svc", "-n", NAMESPACE],
+        check=False
+    )
+
+    if user in active_envs and env_name in active_envs[user]:
+        active_envs[user].remove(env_name)
+
+    print("After TTL cleanup:", active_envs, flush=True)
+
+
 @app.route('/')
 def home():
     return "Dev Platform Backend Running 🚀"
@@ -25,27 +49,26 @@ def create_env():
         data = request.json
 
         user = data.get("user", "default")
-        # auto delete oldest if limit reached
+
+        # ✅ AUTO DELETE OLDEST
         if user in active_envs and len(active_envs[user]) >= 3:
 
             oldest_env = active_envs[user][0]
 
             print("Deleting oldest:", oldest_env, flush=True)
 
-            # delete deployment
             subprocess.run(
                 ["kubectl", "delete", "deployment", oldest_env, "-n", NAMESPACE],
                 check=False
             )
 
-            # delete service
             subprocess.run(
                 ["kubectl", "delete", "service", f"{oldest_env}-svc", "-n", NAMESPACE],
                 check=False
             )
 
-            # remove from memory
             active_envs[user].pop(0)
+
         print("User:", user, flush=True)
 
         if not data or "stack" not in data:
@@ -59,10 +82,7 @@ def create_env():
         cpu = data.get("cpu", "500m")
         memory = data.get("memory", "512Mi")
 
-        # ✅ FIX 1: define env_id first
         env_id = str(uuid.uuid4())[:6]
-
-        # ✅ FIX 2: proper naming
         env_name = f"{user}-{stack}-{env_id}"
 
         config = STACK_CONFIG[stack]
@@ -132,6 +152,16 @@ spec:
         active_envs[user].append(env_name)
 
         print("Active Envs:", active_envs, flush=True)
+
+        # ✅ START TTL THREAD
+        ttl_seconds = 60   # 🔥 change to 1800 later
+
+        threading.Thread(
+            target=delete_env_after_ttl,
+            args=(env_name, user, ttl_seconds),
+            daemon=True
+        ).start()
+
         return jsonify({
             "env_id": env_id,
             "env_name": env_name,
@@ -150,7 +180,6 @@ spec:
 @app.route('/delete-env/<env_id>', methods=['DELETE'])
 def delete_env(env_id):
     try:
-        # ⚠️ TEMP (will fix later properly)
         subprocess.run(
             ["kubectl", "delete", "deployment", f"env-{env_id}", "-n", NAMESPACE],
             check=True
