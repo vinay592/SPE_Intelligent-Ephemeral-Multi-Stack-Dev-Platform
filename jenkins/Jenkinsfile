@@ -39,27 +39,10 @@ pipeline {
             }
         }
 
-        stage('Ensure Minikube Running') {
-            steps {
-                sh '''
-                echo "Checking Minikube..."
-
-                if minikube status | grep Running
-                then
-                    echo "Minikube running ✅"
-                else
-                    echo "Starting Minikube 🚀"
-                    minikube start --driver=docker
-                fi
-                '''
-            }
-        }
-
         stage('Build Image') {
             steps {
                 sh '''
                 echo "Building Docker image..."
-                eval $(minikube docker-env)
                 docker build -t ${STACK}-env:v1 templates/${STACK}
                 '''
             }
@@ -86,11 +69,16 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "Deployment Response:"
+                    echo "📦 Deployment Response:"
                     echo response
 
                     def port = response.split('"access_port":')[1].split(',')[0].trim()
                     env.APP_PORT = port
+
+                    echo "🚀 Environment Ready!"
+                    echo "User: ${params.USER_ID}"
+                    echo "Stack: ${params.STACK}"
+                    echo "Port: ${port}"
                 }
             }
         }
@@ -98,17 +86,10 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    echo "Checking app health..."
+                    echo "Checking app health ❤️..."
                     sleep 5
 
-                    def url = sh(
-                        script: "minikube service ${params.USER_ID}-${params.STACK}-svc -n dev-platform --url",
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Service URL: ${url}"
-
-                    sh "curl -f ${url}"
+                    sh "curl -f http://localhost:${env.APP_PORT}"
                 }
             }
         }
