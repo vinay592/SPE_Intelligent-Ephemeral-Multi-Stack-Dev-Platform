@@ -25,11 +25,27 @@ def create_env():
         data = request.json
 
         user = data.get("user", "default")
-        # limit environments per user
+        # auto delete oldest if limit reached
         if user in active_envs and len(active_envs[user]) >= 3:
-            return jsonify({
-                "error": "Environment limit reached (max 3 per user)"
-            }), 400
+
+        oldest_env = active_envs[user][0]
+
+        print("Deleting oldest:", oldest_env, flush=True)
+
+        # delete deployment
+        subprocess.run(
+            ["kubectl", "delete", "deployment", oldest_env, "-n", NAMESPACE],
+            check=False
+        )
+
+        # delete service
+        subprocess.run(
+            ["kubectl", "delete", "service", f"{oldest_env}-svc", "-n", NAMESPACE],
+            check=False
+        )
+
+        # remove from memory
+        active_envs[user].pop(0)
         print("User:", user, flush=True)
 
         if not data or "stack" not in data:
