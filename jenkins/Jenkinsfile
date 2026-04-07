@@ -25,25 +25,15 @@ pipeline {
         stage('Ensure Backend Running') {
             steps {
                 sh '''
-                echo "Checking if backend is running..."
+                echo "Checking backend..."
 
                 if lsof -i:5001 | grep LISTEN
                 then
-                    echo "Backend already running ✅"
+                    echo "Backend running ✅"
                 else
                     echo "Starting backend 🚀"
                     nohup python3 backend/app.py > backend.log 2>&1 &
-
-                    echo "Waiting for backend..."
-                    for i in {1..10}
-                    do
-                        if curl -s http://localhost:5001 > /dev/null
-                        then
-                            echo "Backend ready ✅"
-                            break
-                        fi
-                        sleep 2
-                    done
+                    sleep 5
                 fi
                 '''
             }
@@ -54,12 +44,9 @@ pipeline {
                 sh '''
                 echo "Checking Minikube..."
 
-                export MINIKUBE_HOME=/home/vinay-v-bhandare/.minikube
-                export KUBECONFIG=/home/vinay-v-bhandare/.kube/config
-
                 if minikube status | grep Running
                 then
-                    echo "Minikube already running ✅"
+                    echo "Minikube running ✅"
                 else
                     echo "Starting Minikube 🚀"
                     minikube start --driver=docker
@@ -68,12 +55,10 @@ pipeline {
             }
         }
 
-        stage('Set Minikube Docker Env + Build Image') {
+        stage('Build Image') {
             steps {
                 sh '''
-                export MINIKUBE_HOME=/home/vinay-v-bhandare/.minikube
-                export KUBECONFIG=/home/vinay-v-bhandare/.kube/config
-
+                echo "Building Docker image..."
                 eval $(minikube docker-env)
                 docker build -t ${STACK}-env:v1 templates/${STACK}
                 '''
@@ -101,16 +86,11 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    echo "📦 Deployment Response:"
-                    echo "${response}"
+                    echo "Deployment Response:"
+                    echo response
 
                     def port = response.split('"access_port":')[1].split(',')[0].trim()
                     env.APP_PORT = port
-
-                    echo "🚀 Environment Ready!"
-                    echo "User: ${params.USER_ID}"
-                    echo "Stack: ${params.STACK}"
-                    echo "Port: ${port}"
                 }
             }
         }
@@ -118,15 +98,11 @@ pipeline {
         stage('Health Check') {
             steps {
                 script {
-                    echo "Checking app health ❤️..."
+                    echo "Checking app health..."
                     sleep 5
 
                     def url = sh(
-                        script: """
-                        export MINIKUBE_HOME=/home/vinay-v-bhandare/.minikube
-                        export KUBECONFIG=/home/vinay-v-bhandare/.kube/config
-                        minikube service ${params.USER_ID}-${params.STACK}-svc -n dev-platform --url
-                        """,
+                        script: "minikube service ${params.USER_ID}-${params.STACK}-svc -n dev-platform --url",
                         returnStdout: true
                     ).trim()
 
