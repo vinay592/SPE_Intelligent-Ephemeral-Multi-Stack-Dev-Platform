@@ -42,6 +42,9 @@ pipeline {
         stage('Build & Push Image') {
     		steps {
         		sh '''
+        		echo "Logging into Docker Hub..."
+        		echo Vinay_vb18 | docker login -u vinayvb18 --password-stdin
+
         		echo "Building image..."
         		docker build -t ${STACK}-env:v1 templates/${STACK}
 
