@@ -3,11 +3,86 @@
 <html>
 <head>
     <title>Dev Platform</title>
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+        }
+
+```
+    h2 {
+        color: #333;
+    }
+
+    .card {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+
+    select, input {
+        padding: 8px;
+        margin-right: 10px;
+    }
+
+    button {
+        padding: 8px 14px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .create-btn {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .show-btn {
+        background-color: #007bff;
+        color: white;
+    }
+
+    .delete-btn {
+        background-color: #dc3545;
+        color: white;
+        margin-left: 10px;
+    }
+
+    .open-btn {
+        background-color: #17a2b8;
+        color: white;
+        margin-left: 10px;
+        text-decoration: none;
+        padding: 6px 10px;
+        border-radius: 5px;
+    }
+
+    .env-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+    #status {
+        margin-top: 10px;
+        font-weight: bold;
+    }
+</style>
+```
+
 </head>
+
 <body>
 
-<h2>Create Environment</h2>
+<h2>🚀 Dev Platform Dashboard</h2>
 
+<div class="card">
+    <h3>Create Environment</h3>
+
+```
 <select id="stack">
     <option value="flask">Flask</option>
     <option value="mern">MERN</option>
@@ -17,21 +92,31 @@
 
 <input type="text" id="user" placeholder="Enter username" />
 
-<button onclick="createEnv()">Create</button> <button onclick="getEnvs()">Show Environments</button>
+<button class="create-btn" onclick="createEnv(event)">Create</button>
+<button class="show-btn" onclick="getEnvs()">Refresh</button>
 
-<br><br>
+<p id="status"></p>
+```
 
-<h3>Delete Environment</h3>
-<input type="text" id="envName" placeholder="Enter env name to delete" />
-<button onclick="deleteEnv()">Delete</button>
+</div>
 
-<h3>Response:</h3>
-<pre id="output"></pre>
+<div class="card">
+    <h3>Active Environments</h3>
+    <div id="output"></div>
+</div>
 
 <script>
-function createEnv() {
+const BASE_URL = "http://192.168.49.2"; // 🔴 replace with your minikube ip
+
+function createEnv(event) {
     const stack = document.getElementById("stack").value;
     const user = document.getElementById("user").value;
+    const status = document.getElementById("status");
+    const btn = event.target;
+
+    btn.disabled = true;
+    status.style.color = "blue";
+    status.innerText = "Creating environment... ⏳";
 
     fetch("http://localhost:5001/create-env", {
         method: "POST",
@@ -40,26 +125,63 @@ function createEnv() {
         },
         body: JSON.stringify({ stack: stack, user: user })
     })
-    .then(res => res.json())
-    .then(data => {
-        document.getElementById("output").innerText =
-            JSON.stringify(data, null, 2);
+    .then(async res => {
+        const data = await res.json();
+
+        // 🔴 HANDLE ERROR PROPERLY
+        if (!res.ok || data.error) {
+            status.style.color = "red";
+            status.innerText = data.error || "Failed to create ❌";
+            btn.disabled = false;
+            return;
+        }
+
+        // ✅ SUCCESS
+        status.style.color = "green";
+        status.innerText = "Environment created successfully ✅";
+        btn.disabled = false;
+
+        getEnvs();
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+        status.style.color = "red";
+        status.innerText = "Server error ❌";
+        btn.disabled = false;
+        console.log(err);
+    });
 }
 
 function getEnvs() {
     fetch("http://localhost:5001/envs")
     .then(res => res.json())
     .then(data => {
-        document.getElementById("output").innerText =
-            JSON.stringify(data, null, 2);
-    })
-    .catch(err => console.log(err));
+
+        let html = "";
+
+        for (let user in data) {
+            html += "<h4>User: " + user + "</h4>";
+
+            data[user].forEach(env => {
+
+              html += `
+                <div class="env-item">
+                  <b>${env.name}</b> (Port: ${env.port})
+                  <a class="open-btn" href="${BASE_URL}:${env.port}" target="_blank">Open</a>
+                  <button class="delete-btn" onclick="deleteEnvDirect('${env.name}')">Delete</button>
+                </div>
+    `         ;
+             });
+        }
+
+        document.getElementById("output").innerHTML = html;
+    });
 }
 
-function deleteEnv() {
-    const envName = document.getElementById("envName").value;
+function deleteEnvDirect(envName) {
+    const status = document.getElementById("status");
+
+    status.style.color = "blue";
+    status.innerText = "Deleting environment... ⏳";
 
     fetch("http://localhost:5001/delete-env", {
         method: "POST",
@@ -70,10 +192,16 @@ function deleteEnv() {
     })
     .then(res => res.json())
     .then(data => {
-        document.getElementById("output").innerText =
-            JSON.stringify(data, null, 2);
+        status.style.color = "green";
+        status.innerText = "Environment deleted ✅";
+
+        getEnvs();
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+        status.style.color = "red";
+        status.innerText = "Error deleting ❌";
+        console.log(err);
+    });
 }
 </script>
 
