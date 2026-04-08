@@ -3,9 +3,11 @@ import uuid
 import subprocess
 import threading
 import time
+from flask_cors import CORS
+import json
 
 app = Flask(__name__)
-
+CORS(app)
 STACK_CONFIG = {
     "flask": {"image": "vinayvb18/flask-env:v1", "port": 5001},
     "mern": {"image": "vinayvb18/mern-env:v1", "port": 3000},
@@ -28,16 +30,85 @@ def delete_env_after_ttl(env_name, user, ttl):
         check=False
     )
 
-    if user in active_envs and env_name in active_envs[user]:
-        active_envs[user].remove(env_name)
+    subprocess.run(
+        ["kubectl", "delete", "svc", f"{env_name}-svc", "-n", NAMESPACE],
+        check=False
+    )
+
+    if user in active_envs:
+        active_envs[user] = [
+            env for env in active_envs[user]
+            if env["name"] != env_name
+        ]
 
     print("After TTL cleanup:", active_envs, flush=True)
+
+
+def get_k8s_envs():
+    result = subprocess.check_output(
+        ["kubectl", "get", "svc", "-n", NAMESPACE, "-o", "json"]
+    )
+
+    services = json.loads(result)
+
+    envs = {}
+
+    for svc in services["items"]:
+        name = svc["metadata"]["name"]
+
+        if "-svc" not in name:
+            continue
+
+        env_name = name.replace("-svc", "")
+        user = env_name.split("-")[0]
+        port = svc["spec"]["ports"][0]["nodePort"]
+
+        if user not in envs:
+            envs[user] = []
+
+        envs[user].append({
+            "name": env_name,
+            "port": port
+        })
+
+    return envs
 
 
 @app.route('/')
 def home():
     return "Dev Platform Backend Running 🚀"
 
+@app.route('/envs', methods=['GET'])
+def list_envs():
+    return jsonify(get_k8s_envs())
+
+@app.route('/delete-env', methods=['POST'])
+def delete_env():
+    data = request.json
+    env_name = data.get("env_name")
+
+    if not env_name:
+        return jsonify({"error": "env_name required"}), 400
+
+    subprocess.run(
+        ["kubectl", "delete", "deployment", env_name, "-n", NAMESPACE],
+        check=False
+    )
+    subprocess.run(
+        ["kubectl", "delete", "svc", f"{env_name}-svc", "-n", NAMESPACE],
+        check=False
+    )
+    # remove from active_envs
+    for user in active_envs:
+        active_envs[user] = [
+            env for env in active_envs[user]
+            if env["name"] != env_name
+        ]
+
+    return jsonify({
+        "status": "deleted",
+        "env_name": env_name
+    })
 
 @app.route('/create-env', methods=['POST'])
 def create_env():
@@ -68,8 +139,8 @@ def create_env():
 
         print("Color selected:", color, flush=True)
 
-        cpu = data.get("cpu", "500m")
-        memory = data.get("memory", "512Mi")
+        cpu = data.get("cpu", "100m")
+        memory = data.get("memory", "128Mi")
 
         env_id = str(uuid.uuid4())[:6]
         env_name = f"{user}-{stack}-{color}-{env_id}"
@@ -78,6 +149,11 @@ def create_env():
         image = config["image"]
         port = config["port"]
 
+        # 🔥 REAL COUNT FROM KUBERNETES
+        current_envs = get_k8s_envs().get(user, [])
+
+        if len(current_envs) >= 3:
+            return jsonify({"error": "Max 3 environments allowed"}), 400
         # DEPLOYMENT YAML
         deployment_yaml = f"""
 apiVersion: apps/v1
@@ -107,7 +183,7 @@ spec:
 """
 
         # 🔥 SINGLE SERVICE PER USER-STACK
-        service_name = f"{user}-{stack}-svc"
+        service_name = f"{env_name}-svc"
 
         node_port = 30000 + int(env_id[:3], 16) % 2000
 
@@ -140,22 +216,32 @@ spec:
         subprocess.run(["kubectl", "apply", "-f", svc_file], check=True)
 
         # TRACK ENV
+        # TRACK ENV
         if user not in active_envs:
             active_envs[user] = []
 
-        # 🔥 DELETE OLD VERSION
-        for old_env in active_envs[user]:
-            if f"{user}-{stack}" in old_env and old_env != env_name:
+        active_envs[user].append({
+          "name": env_name,
+          "port": node_port
+        })
 
-                print("Deleting old version:", old_env, flush=True)
+        # 🔴 LIMIT = 3 ENV PER USER
+        MAX_ENVS = 3
 
-                subprocess.run(
-                    ["kubectl", "delete", "deployment", old_env, "-n", NAMESPACE],
-                    check=False
-                )
+        if len(active_envs[user]) > MAX_ENVS:
+            old_env = active_envs[user].pop(0)
 
-        # keep only latest
-        active_envs[user] = [env_name]
+            print("Deleting oldest env:", old_env, flush=True)
+
+            subprocess.run(
+                ["kubectl", "delete", "deployment", old_env["name"], "-n", NAMESPACE],
+                check=False
+            )
+
+            subprocess.run(
+                ["kubectl", "delete", "svc", f"{old_env['name']}-svc", "-n", NAMESPACE],
+                check=False
+            )
 
         print("Active Envs:", active_envs, flush=True)
 

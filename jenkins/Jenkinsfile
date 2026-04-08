@@ -39,23 +39,64 @@ pipeline {
             }
         }
 
+        // ✅ NEW: WAIT FOR BACKEND READY
+        stage('Wait for Backend Ready') {
+            steps {
+                sh '''
+                echo "Waiting for backend..."
+
+                for i in {1..10}
+                do
+                    if curl -s http://localhost:5001/ > /dev/null
+                    then
+                        echo "Backend ready ✅"
+                        exit 0
+                    fi
+                    sleep 2
+                done
+
+                echo "Backend not responding ❌"
+                exit 1
+                '''
+            }
+        }
+
+        // ✅ NEW: FRONTEND START
+        stage('Ensure Frontend Running') {
+            steps {
+                sh '''
+                echo "Checking frontend..."
+
+                if lsof -i:3000 | grep LISTEN
+                then
+                    echo "Frontend already running ✅"
+                else
+                    echo "Starting frontend 🚀"
+                    cd frontend
+                    nohup python3 -m http.server 3000 > frontend.log 2>&1 &
+                    sleep 3
+                fi
+                '''
+            }
+        }
+
         stage('Build & Push Image') {
-    		steps {
-        		sh '''
-        		echo "Logging into Docker Hub..."
-        		echo Vinay_vb18 | docker login -u vinayvb18 --password-stdin
+            steps {
+                sh '''
+                echo "Logging into Docker Hub..."
+                echo Vinay_vb18 | docker login -u vinayvb18 --password-stdin
 
-        		echo "Building image..."
-        		docker build -t ${STACK}-env:v1 templates/${STACK}
+                echo "Building image..."
+                docker build -t ${STACK}-env:v1 templates/${STACK}
 
-        		echo "Tagging image..."
-        		docker tag ${STACK}-env:v1 vinayvb18/${STACK}-env:v1
+                echo "Tagging image..."
+                docker tag ${STACK}-env:v1 vinayvb18/${STACK}-env:v1
 
-        		echo "Pushing to Docker Hub..."
-        		docker push vinayvb18/${STACK}-env:v1
-        		'''
-    		}
-	}
+                echo "Pushing to Docker Hub..."
+                docker push vinayvb18/${STACK}-env:v1
+                '''
+            }
+        }
 
         stage('Security Scan (Trivy)') {
             steps {
@@ -66,28 +107,27 @@ pipeline {
             }
         }
 
-stage('Trigger Deployment') {
-    steps {
-        script {
-            def response = sh(
-                script: """
-                curl -s -X POST http://localhost:5001/create-env \
-                -H "Content-Type: application/json" \
-                -d '{"stack":"${params.STACK}", "user":"${params.USER_ID}"}'
-                """,
-                returnStdout: true
-            ).trim()
+        stage('Trigger Deployment') {
+            steps {
+                script {
+                    def response = sh(
+                        script: """
+                        curl -s -X POST http://localhost:5001/create-env \
+                        -H "Content-Type: application/json" \
+                        -d '{"stack":"${params.STACK}", "user":"${params.USER_ID}"}'
+                        """,
+                        returnStdout: true
+                    ).trim()
 
-            echo "Deployment Response:"
-            echo response
+                    echo "Deployment Response:"
+                    echo response
 
-            // ✅ FIXED PARSING
-            def json = readJSON text: response
-            def port = json.access_port
-            env.APP_PORT = port
+                    def json = readJSON text: response
+                    def port = json.access_port
+                    env.APP_PORT = port
+                }
+            }
         }
-    }
-}
 
         stage('Health Check') {
             steps {
@@ -96,9 +136,9 @@ stage('Trigger Deployment') {
                     sleep 5
 
                     sh """
-			echo "Skipping direct health check from Jenkins..."
-			echo "App deployed successfully. Access via Minikube from browser."
-		     """
+                    echo "App URL:"
+                    echo "http://\$(minikube ip):${APP_PORT}"
+                    """
                 }
             }
         }
