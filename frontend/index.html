@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>Dev Platform</title>
+</head>
+<body>
+
+<h2>Create Environment</h2>
+
+<select id="stack">
+    <option value="flask">Flask</option>
+    <option value="mern">MERN</option>
+    <option value="java">Java</option>
+    <option value="ml">ML</option>
+</select>
+
+<input type="text" id="user" placeholder="Enter username" />
+
+<button onclick="createEnv()">Create</button> <button onclick="getEnvs()">Show Environments</button>
+
+<br><br>
+
+<h3>Delete Environment</h3>
+<input type="text" id="envName" placeholder="Enter env name to delete" />
+<button onclick="deleteEnv()">Delete</button>
+
+<h3>Response:</h3>
+<pre id="output"></pre>
+
+<script>
+function createEnv() {
+    const stack = document.getElementById("stack").value;
+    const user = document.getElementById("user").value;
+
+    fetch("http://localhost:5001/create-env", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ stack: stack, user: user })
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("output").innerText =
+            JSON.stringify(data, null, 2);
+    })
+    .catch(err => console.log(err));
+}
+
+function getEnvs() {
+    fetch("http://localhost:5001/envs")
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("output").innerText =
+            JSON.stringify(data, null, 2);
+    })
+    .catch(err => console.log(err));
+}
+
+function deleteEnv() {
+    const envName = document.getElementById("envName").value;
+
+    fetch("http://localhost:5001/delete-env", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ env_name: envName })
+    })
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("output").innerText =
+            JSON.stringify(data, null, 2);
+    })
+    .catch(err => console.log(err));
+}
+</script>
+
+</body>
+</html>
+
