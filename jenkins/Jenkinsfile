@@ -61,24 +61,7 @@ pipeline {
             }
         }
 
-        // ✅ NEW: FRONTEND START
-        stage('Ensure Frontend Running') {
-    		steps {
-        	sh '''
-        	echo "Checking frontend..."
-
-        	if lsof -i:3000 | grep LISTEN
-        	then
-            		echo "Frontend already running ✅"
-        	else
-            		echo "Starting frontend 🚀"
-            		cd frontend
-            		nohup python3 -m http.server 3000 --bind 0.0.0.0 > frontend.log 2>&1 &
-            		sleep 3
-        	fi
-        	'''
-    		}
-	}
+       
 
         stage('Build & Push Image') {
             steps {
@@ -130,18 +113,18 @@ pipeline {
         }
 
         stage('Health Check') {
-            steps {
-                script {
-                    echo "Checking app health ❤️..."
-                    sleep 5
+    steps {
+        script {
+            echo "App deployed successfully 🚀"
+            echo "Access your environments from frontend dashboard"
 
-                    sh """
-                    echo "App URL:"
-                    echo "http://\$(minikube ip):${APP_PORT}"
-                    """
-                }
-            }
+            sh '''
+            echo "Minikube IP:"
+            minikube ip
+            '''
         }
+    }
+}
     }
 
     post {
