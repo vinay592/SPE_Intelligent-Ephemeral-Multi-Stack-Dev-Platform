@@ -21,6 +21,43 @@ NAMESPACE = "dev-platform"
 active_envs = {}
 active_color = {}
 
+def get_k8s_envs():
+    try:
+        result = subprocess.check_output(
+            ["kubectl", "get", "svc", "-n", NAMESPACE, "-o", "json"],
+            text=True
+        )
+
+        data = json.loads(result)
+
+        envs = {}
+
+        for item in data["items"]:
+            name = item["metadata"]["name"]
+
+            if not name.endswith("-svc"):
+                continue
+
+            env_name = name.replace("-svc", "")
+
+            parts = env_name.split("-")
+            user = parts[0]
+
+            node_port = item["spec"]["ports"][0].get("nodePort")
+
+            if user not in envs:
+                envs[user] = []
+
+            envs[user].append({
+                "name": env_name,
+                "port": node_port
+            })
+
+        return envs
+
+    except Exception as e:
+        print("Error fetching K8s envs:", e)
+        return {}
 # ---------------- DELETE FUNCTION ----------------
 def delete_k8s_resources(name):
     print(f"Deleting resources for {name}", flush=True)

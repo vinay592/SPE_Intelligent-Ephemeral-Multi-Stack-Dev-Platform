@@ -6,6 +6,6 @@ COPY . .
 
 RUN npm install express
 
-EXPOSE 80
+EXPOSE 3000
 
-CMD ["node", "app.js"]
+CMD ["node", "server.js"]

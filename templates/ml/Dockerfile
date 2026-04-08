@@ -1,11 +1,9 @@
-FROM python:3.9
+FROM python:3.10
 
 WORKDIR /app
 
-COPY . .
-
-RUN pip install -r requirements.txt
+RUN pip install jupyter pandas numpy matplotlib scikit-learn
 
 EXPOSE 8888
 
-CMD ["python", "app.py"]
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=", "--NotebookApp.password="]

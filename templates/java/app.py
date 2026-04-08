@@ -1,46 +1,52 @@
 from flask import Flask, request, render_template_string
+import subprocess
 
 app = Flask(__name__)
 
-code_store = {"code": "print('Hello Flask 🚀')"}
+code_store = {
+    "code": """public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Java 🚀");
+    }
+}"""
+}
 
 @app.route('/')
 def home():
     return render_template_string("""
-    <h2>Flask Dev Environment 🚀</h2>
+    <h2>Java Dev Environment 🚀</h2>
 
     <form method="POST" action="/run">
-        <textarea name="code" rows="10" cols="50">{{code}}</textarea><br><br>
+        <textarea name="code" rows="12" cols="70">{{code}}</textarea><br><br>
         <button type="submit">Run</button>
     </form>
 
-    <h3>Output:</h3>
     <pre>{{output}}</pre>
     """, code=code_store["code"], output="")
 
 @app.route('/run', methods=['POST'])
-def run_code():
+def run():
     code = request.form['code']
     code_store["code"] = code
 
+    with open("Main.java", "w") as f:
+        f.write(code)
+
     try:
-        exec_globals = {}
-        exec(code, exec_globals)
-        output = "Executed successfully"
+        subprocess.run(["javac", "Main.java"], check=True)
+        output = subprocess.check_output(["java", "Main"], text=True)
     except Exception as e:
         output = str(e)
 
     return render_template_string("""
-    <h2>Flask Dev Environment 🚀</h2>
+    <h2>Java Dev Environment 🚀</h2>
 
     <form method="POST" action="/run">
-        <textarea name="code" rows="10" cols="50">{{code}}</textarea><br><br>
+        <textarea name="code" rows="12" cols="70">{{code}}</textarea><br><br>
         <button type="submit">Run</button>
     </form>
 
-    <h3>Output:</h3>
     <pre>{{output}}</pre>
     """, code=code_store["code"], output=output)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+app.run(host='0.0.0.0', port=8082)
