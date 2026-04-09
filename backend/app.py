@@ -11,16 +11,17 @@ app = Flask(__name__)
 CORS(app)
 
 STACK_CONFIG = {
-    "flask": {"image": "vinayvb18/flask-env:v1", "port": 5001},
-    "mern": {"image": "vinayvb18/mern-env:v1", "port": 3000},
-    "java": {"image": "vinayvb18/java-env:v1", "port": 8082},
-    "ml": {"image": "vinayvb18/ml-env:v1", "port": 8888}
+    "flask": {"image": "vinayvb18/flask-env:v2", "port": 5001},
+    "mern": {"image": "vinayvb18/mern-env:v2", "port": 3000},
+    "java": {"image": "vinayvb18/java-env:v2", "port": 8082},
+    "ml": {"image": "vinayvb18/ml-env:v2", "port": 8888}
 }
 
 NAMESPACE = "dev-platform"
 active_envs = {}
 active_color = {}
 
+# ---------------- GET ENVS ----------------
 def get_k8s_envs():
     try:
         result = subprocess.check_output(
@@ -29,7 +30,6 @@ def get_k8s_envs():
         )
 
         data = json.loads(result)
-
         envs = {}
 
         for item in data["items"]:
@@ -39,10 +39,7 @@ def get_k8s_envs():
                 continue
 
             env_name = name.replace("-svc", "")
-
-            parts = env_name.split("-")
-            user = parts[0]
-
+            user = env_name.split("-")[0]
             node_port = item["spec"]["ports"][0].get("nodePort")
 
             if user not in envs:
@@ -58,7 +55,8 @@ def get_k8s_envs():
     except Exception as e:
         print("Error fetching K8s envs:", e)
         return {}
-# ---------------- DELETE FUNCTION ----------------
+
+# ---------------- DELETE ----------------
 def delete_k8s_resources(name):
     print(f"Deleting resources for {name}", flush=True)
 
@@ -72,43 +70,48 @@ def delete_k8s_resources(name):
         check=False
     )
 
-# ---------------- TTL THREAD (PER ENV) ----------------
-def delete_env_after_ttl(env_name, user, ttl):
-    time.sleep(ttl)
-
-    print(f"[TTL THREAD] Deleting {env_name}", flush=True)
-
-    delete_k8s_resources(env_name)
-
-    if user in active_envs:
-        active_envs[user] = [
-            env for env in active_envs[user]
-            if env["name"] != env_name
-        ]
-
-# ---------------- GLOBAL CLEANUP ----------------
-TTL = 1800  # 30 mins
+# ---------------- GLOBAL TTL CLEANUP ----------------
+TTL = 1800  # 30 mins (change to 60 for testing)
 
 def cleanup_expired_envs():
     while True:
-        time.sleep(60)
+        time.sleep(30)
 
         now = time.time()
+        print("[TTL CHECK RUNNING]", flush=True)
 
-        for user in list(active_envs.keys()):
-            updated_envs = []
+        # 🔥 get real envs from Kubernetes
+        envs = get_k8s_envs()
 
-            for env in active_envs[user]:
-                created_at = env.get("created_at", now)
+        for user in envs:
+            for env in envs[user]:
+
+                env_name = env["name"]
+
+                created_at = None
+
+                # 🔍 find created_at from active_envs
+                if user in active_envs:
+                    for e in active_envs[user]:
+                        if e["name"] == env_name:
+                            created_at = e.get("created_at")
+                            break
+
+                # ❗ skip if not tracked
+                if not created_at:
+                    continue
+
                 age = now - created_at
 
-                if age < TTL:
-                    updated_envs.append(env)
-                else:
-                    print(f"[AUTO CLEANUP] Removing {env['name']}", flush=True)
-                    delete_k8s_resources(env["name"])
+                if age >= TTL:
+                    print(f"[AUTO DELETE] {env_name}", flush=True)
+                    delete_k8s_resources(env_name)
 
-            active_envs[user] = updated_envs
+                    # 🧹 remove from active_envs also
+                    active_envs[user] = [
+                        e for e in active_envs[user]
+                        if e["name"] != env_name
+                    ]
 
 # ---------------- ROUTES ----------------
 @app.route('/')
@@ -139,7 +142,22 @@ def delete_env():
         "status": "deleted",
         "env_name": env_name
     })
+#-----------------OPEN ENV--------------------
+@app.route('/open-env', methods=['POST'])
+def open_env():
+    data = request.json
+    env_name = data.get("env_name")
 
+    try:
+        output = subprocess.check_output(
+            ["minikube", "service", f"{env_name}-svc", "-n", NAMESPACE, "--url"],
+            text=True
+        ).strip()
+
+        return jsonify({"url": output})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 # ---------------- CREATE ENV ----------------
 @app.route('/create-env', methods=['POST'])
 def create_env():
@@ -155,17 +173,13 @@ def create_env():
         if stack not in STACK_CONFIG:
             return jsonify({"error": "Invalid stack"}), 400
 
-        print("User:", user, flush=True)
-
-        # COLOR LOGIC
         key = f"{user}-{stack}"
 
         if key not in active_color:
             color = "blue"
             active_color[key] = "blue"
         else:
-            current = active_color[key]
-            color = "green" if current == "blue" else "blue"
+            color = "green" if active_color[key] == "blue" else "blue"
             active_color[key] = color
 
         cpu = data.get("cpu", "100m")
@@ -203,6 +217,7 @@ spec:
       containers:
       - name: app-container
         image: {image}
+        imagePullPolicy: Always
         ports:
         - containerPort: {port}
         resources:
@@ -250,7 +265,7 @@ spec:
         active_envs[user].append({
             "name": env_name,
             "port": node_port,
-            "created_at": time.time()
+            "created_at": time.time()   # 🔥 REQUIRED FOR TTL
         })
 
         # ---------------- LIMIT ----------------
@@ -258,13 +273,6 @@ spec:
             old_env = active_envs[user].pop(0)
             print("Deleting oldest:", old_env, flush=True)
             delete_k8s_resources(old_env["name"])
-
-        # ---------------- TTL THREAD ----------------
-        threading.Thread(
-            target=delete_env_after_ttl,
-            args=(env_name, user, TTL),
-            daemon=True
-        ).start()
 
         return jsonify({
             "env_name": env_name,
