@@ -1,12 +1,12 @@
 FROM eclipse-temurin:17
 
-RUN apt update && apt install -y python3 python3-pip
-
-RUN pip install flask --break-system-packages
-
 WORKDIR /app
 
 COPY . .
+
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    pip3 install flask --break-system-packages
 
 EXPOSE 8082
 

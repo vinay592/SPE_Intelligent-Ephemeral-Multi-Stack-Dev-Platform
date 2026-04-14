@@ -1,8 +1,9 @@
 {
-  "name": "mern-app",
+  "name": "mern-ide",
   "version": "1.0.0",
   "main": "app.js",
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2"
   }
 }

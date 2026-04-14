@@ -1,41 +1,119 @@
-const express = require('express')
-const app = express()
+const express = require("express");
+const bodyParser = require("body-parser");
+const { exec } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 
-app.use(express.json())
+const app = express();
+app.use(bodyParser.json());
 
-let codeStore = "console.log('Hello MERN 🚀')"
+app.get("/", (req, res) => {
+  res.send(`
+  <html>
+  <head>
+    <title>MERN IDE</title>
 
-app.get('/', (req, res) => {
-    res.send(`
-        <h2>MERN Dev Environment 🚀</h2>
-        <form method="POST" action="/run">
-            <textarea name="code" rows="10" cols="50">${codeStore}</textarea><br><br>
-            <button type="submit">Run</button>
-        </form>
-    `)
-})
+    <style>
+      body {
+        background: #0f172a;
+        color: #e2e8f0;
+        font-family: monospace;
+        padding: 20px;
+      }
 
-app.post('/run', express.urlencoded({ extended: true }), (req, res) => {
-    codeStore = req.body.code
+      h2 {
+        color: #38bdf8;
+      }
 
-    let output = ""
-    try {
-        eval(codeStore)
-        output = "Executed ,successfully"
-    } catch (e) {
-        output = e.toString()
-    }
+      textarea {
+        width: 100%;
+        height: 220px;
+        background: #020617;
+        color: #00ff9d;
+        border: 1px solid #334155;
+        padding: 10px;
+        border-radius: 8px;
+      }
 
-    res.send(`
-        <h2>MERN Dev Environment 🚀</h2>
-        <form method="POST" action="/run">
-            <textarea name="code" rows="10" cols="50">${codeStore}</textarea><br><br>
-            <button type="submit">Run</button>
-        </form>
-        <h3>${output}</h3>
-    `)
-})
+      button {
+        margin-top: 10px;
+        padding: 10px 15px;
+        background: #22c55e;
+        border: none;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+      }
 
-app.listen(3000, '0.0.0.0', () => {
-    console.log("Server running on port 3000")
-})
+      .console {
+        margin-top: 20px;
+        background: #000;
+        padding: 15px;
+        border-radius: 8px;
+        height: 250px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+      }
+
+      .success { color: #22c55e; }
+      .error { color: #ef4444; }
+    </style>
+
+  </head>
+
+  <body>
+
+    <h2>⚡ MERN Dev IDE (Node.js)</h2>
+
+    <textarea id="code">console.log("Hello MERN 🚀")</textarea>
+
+    <br>
+    <button onclick="runCode()">▶ Run Code</button>
+
+    <div class="console" id="output">Ready...</div>
+
+    <script>
+      function runCode() {
+        const code = document.getElementById("code").value;
+        const output = document.getElementById("output");
+
+        output.innerHTML = "⏳ Running...";
+
+        fetch("/run", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ code })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) {
+            output.innerHTML = "<span class='error'>" + data.error + "</span>";
+          } else {
+            output.innerHTML = "<span class='success'>" + data.output + "</span>";
+          }
+        });
+      }
+    </script>
+
+  </body>
+  </html>
+  `);
+});
+
+app.post("/run", (req, res) => {
+  const code = req.body.code;
+
+  const filePath = path.join(__dirname, "temp.js");
+  fs.writeFileSync(filePath, code);
+
+  exec(`node ${filePath}`, (err, stdout, stderr) => {
+    res.json({
+      output: stdout.trim(),
+      error: stderr.trim()
+    });
+  });
+});
+
+app.listen(3000, "0.0.0.0", () => {
+  console.log("MERN IDE running on port 3000");
+});

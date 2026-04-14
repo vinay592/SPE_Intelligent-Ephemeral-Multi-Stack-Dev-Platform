@@ -3,6 +3,7 @@ import uuid
 import subprocess
 import threading
 import time
+from datetime import datetime, timezone
 from flask_cors import CORS
 import json
 import os
@@ -11,10 +12,10 @@ app = Flask(__name__)
 CORS(app)
 
 STACK_CONFIG = {
-    "flask": {"image": "vinayvb18/flask-env:v2", "port": 5001},
-    "mern": {"image": "vinayvb18/mern-env:v2", "port": 3000},
-    "java": {"image": "vinayvb18/java-env:v2", "port": 8082},
-    "ml": {"image": "vinayvb18/ml-env:v2", "port": 8888}
+    "flask": {"image": "vinayvb18/flask-env:v5", "port": 5001},
+    "mern": {"image": "vinayvb18/mern-env:v5", "port": 3000},
+    "java": {"image": "vinayvb18/java-env:v3", "port": 8082},
+    "ml": {"image": "vinayvb18/ml-env:v6", "port": 8888}
 }
 
 NAMESPACE = "dev-platform"
@@ -71,47 +72,58 @@ def delete_k8s_resources(name):
     )
 
 # ---------------- GLOBAL TTL CLEANUP ----------------
-TTL = 1800  # 30 mins (change to 60 for testing)
+TTL = 1800  # 30 mins
 
 def cleanup_expired_envs():
     while True:
-        time.sleep(30)
+        time.sleep(180)
 
-        now = time.time()
-        print("[TTL CHECK RUNNING]", flush=True)
+        try:
+            result = subprocess.check_output(
+                ["kubectl", "get", "pods", "-n", NAMESPACE, "-o", "json"],
+                text=True
+            )
 
-        # 🔥 get real envs from Kubernetes
-        envs = get_k8s_envs()
+            data = json.loads(result)
+            now = time.time()
 
-        for user in envs:
-            for env in envs[user]:
+            print("[TTL CHECK RUNNING]", flush=True)
 
-                env_name = env["name"]
+            processed = set()
 
-                created_at = None
+            for item in data["items"]:
+                metadata = item["metadata"]
+                labels = metadata.get("labels", {})
+                app_name = labels.get("app")
 
-                # 🔍 find created_at from active_envs
-                if user in active_envs:
-                    for e in active_envs[user]:
-                        if e["name"] == env_name:
-                            created_at = e.get("created_at")
-                            break
-
-                # ❗ skip if not tracked
-                if not created_at:
+                # skip if no app label
+                if not app_name:
                     continue
 
-                age = now - created_at
+                # skip unwanted stacks
+                if not any(stack in app_name for stack in ["flask", "mern", "java", "ml"]):
+                    continue
+
+                # avoid duplicate deletion
+                if app_name in processed:
+                    continue
+                processed.add(app_name)
+
+                created_at_str = metadata["creationTimestamp"]
+
+                # ✅ correct UTC handling
+                created_at_epoch = datetime.strptime(
+                    created_at_str, "%Y-%m-%dT%H:%M:%SZ"
+                ).replace(tzinfo=timezone.utc).timestamp()
+
+                age = now - created_at_epoch
 
                 if age >= TTL:
-                    print(f"[AUTO DELETE] {env_name}", flush=True)
-                    delete_k8s_resources(env_name)
+                    print(f"[AUTO DELETE] {app_name}", flush=True)
+                    delete_k8s_resources(app_name)
 
-                    # 🧹 remove from active_envs also
-                    active_envs[user] = [
-                        e for e in active_envs[user]
-                        if e["name"] != env_name
-                    ]
+        except Exception as e:
+            print("TTL Error:", e)
 
 # ---------------- ROUTES ----------------
 @app.route('/')
@@ -122,15 +134,21 @@ def home():
 def list_envs():
     return jsonify(get_k8s_envs())
 
+from flask import request, jsonify
+
 @app.route('/delete-env', methods=['POST'])
 def delete_env():
-    data = request.json
-    env_name = data.get("env_name")
+    data = request.get_json()
 
-    if not env_name:
+    if not data or "env_name" not in data:
         return jsonify({"error": "env_name required"}), 400
 
-    delete_k8s_resources(env_name)
+    env_name = data["env_name"]
+
+    try:
+        delete_k8s_resources(env_name)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
     for user in active_envs:
         active_envs[user] = [
@@ -142,6 +160,7 @@ def delete_env():
         "status": "deleted",
         "env_name": env_name
     })
+
 #-----------------OPEN ENV--------------------
 @app.route('/open-env', methods=['POST'])
 def open_env():
@@ -182,8 +201,8 @@ def create_env():
             color = "green" if active_color[key] == "blue" else "blue"
             active_color[key] = color
 
-        cpu = data.get("cpu", "100m")
-        memory = data.get("memory", "128Mi")
+        cpu = data.get("cpu", "500m")
+        memory = data.get("memory", "512Mi")
 
         env_id = str(uuid.uuid4())[:6]
         env_name = f"{user}-{stack}-{color}-{env_id}"
