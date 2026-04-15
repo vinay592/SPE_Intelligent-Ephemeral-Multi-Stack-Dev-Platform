@@ -29,7 +29,7 @@ logging.basicConfig(
     format="%(asctime)s - %(message)s"
 )
 
-# 🔥 ELASTICSEARCH INIT (SAFE + RETRY)
+# ---------------- ELASTICSEARCH ----------------
 es = None
 
 for i in range(5):
@@ -39,7 +39,7 @@ for i in range(5):
         print("Elasticsearch connected ✅")
         break
     except:
-        print("Retrying Elasticsearch...", i+1)
+        print("Retrying Elasticsearch...", i + 1)
         time.sleep(5)
 
 if not es:
@@ -65,19 +65,32 @@ def load_yaml_template(path, replacements):
 
     return content
 
+
 def delete_k8s_resources(name):
-    subprocess.run(["kubectl", "delete", "deployment", name, "-n", NAMESPACE, "--ignore-not-found"], check=False)
-    subprocess.run(["kubectl", "delete", "svc", f"{name}-svc", "-n", NAMESPACE, "--ignore-not-found"], check=False)
-    subprocess.run(["kubectl", "delete", "pvc", f"{name}-pvc", "-n", NAMESPACE, "--ignore-not-found"], check=False)
+    subprocess.run(
+        ["kubectl", "delete", "deployment", name, "-n", NAMESPACE, "--ignore-not-found"],
+        check=False
+    )
+    subprocess.run(
+        ["kubectl", "delete", "svc", f"{name}-svc", "-n", NAMESPACE, "--ignore-not-found"],
+        check=False
+    )
+    subprocess.run(
+        ["kubectl", "delete", "pvc", f"{name}-pvc", "-n", NAMESPACE, "--ignore-not-found"],
+        check=False
+    )
+
 
 # ---------------- TTL CLEANUP ----------------
 TTL = 1800
+
 
 def cleanup_expired_envs():
     while True:
         time.sleep(60)
         try:
             now = time.time()
+
             for env in envs_col.find():
                 age = now - env.get("created_at", now)
 
@@ -96,14 +109,17 @@ def cleanup_expired_envs():
         except Exception as e:
             print("TTL Error:", e)
 
+
 # ---------------- ROUTES ----------------
 @app.route('/')
 def home():
     return "Dev Platform Backend Running 🚀"
 
+
 @app.route('/envs', methods=['GET'])
 def list_envs():
     result = {}
+
     for env in envs_col.find():
         user = env["user"]
 
@@ -117,6 +133,7 @@ def list_envs():
         })
 
     return jsonify(result)
+
 
 @app.route('/delete-env', methods=['POST'])
 def delete_env():
@@ -136,18 +153,21 @@ def delete_env():
 
     return jsonify({"status": "deleted"})
 
+
 @app.route('/open-env', methods=['POST'])
 def open_env():
     try:
         data = request.json
         env_name = data.get("env_name")
 
-        # 1. WAIT FOR POD TO BE READY
-        for i in range(15):  # ~30 sec max
+        # WAIT FOR POD
+        for i in range(15):
             pod_status = subprocess.check_output(
-                ["kubectl", "get", "pods", "-n", NAMESPACE,
-                 "-l", f"app={env_name}",
-                 "-o", "jsonpath={.items[0].status.phase}"],
+                [
+                    "kubectl", "get", "pods", "-n", NAMESPACE,
+                    "-l", f"app={env_name}",
+                    "-o", "jsonpath={.items[0].status.phase}"
+                ],
                 text=True
             ).strip()
 
@@ -160,12 +180,14 @@ def open_env():
         else:
             return jsonify({"error": "Pod not ready"}), 500
 
-        # 2. WAIT FOR CONTAINER READY (IMPORTANT)
+        # WAIT FOR CONTAINER READY
         for i in range(10):
             ready = subprocess.check_output(
-                ["kubectl", "get", "pods", "-n", NAMESPACE,
-                 "-l", f"app={env_name}",
-                 "-o", "jsonpath={.items[0].status.containerStatuses[0].ready}"],
+                [
+                    "kubectl", "get", "pods", "-n", NAMESPACE,
+                    "-l", f"app={env_name}",
+                    "-o", "jsonpath={.items[0].status.containerStatuses[0].ready}"
+                ],
                 text=True
             ).strip()
 
@@ -174,10 +196,9 @@ def open_env():
 
             time.sleep(2)
 
-        # 3. NOW SAFE TO EXPOSE SERVICE
+        # GET SERVICE URL
         output = subprocess.check_output(
-            ["minikube", "service", f"{env_name}-svc",
-             "-n", NAMESPACE, "--url"],
+            ["minikube", "service", f"{env_name}-svc", "-n", NAMESPACE, "--url"],
             text=True
         ).strip()
 
@@ -185,7 +206,8 @@ def open_env():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
+
 # -------- AUTH --------
 @app.route('/signup', methods=['POST'])
 def signup():
@@ -213,6 +235,7 @@ def signup():
 
     return jsonify({"status": True})
 
+
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -236,6 +259,7 @@ def login():
         })
 
     return jsonify({"status": True})
+
 
 # -------- CREATE ENV --------
 @app.route('/create-env', methods=['POST'])
@@ -268,15 +292,34 @@ def create_env():
         base_path = os.path.dirname(os.path.abspath(__file__))
         k8s_path = os.path.join(base_path, "..", "k8s")
 
-        pvc_yaml = load_yaml_template(os.path.join(k8s_path, "pvc.yaml"), {"ENV_NAME": env_name})
-        deployment_yaml = load_yaml_template(os.path.join(k8s_path, "deployment.yaml"),
-                                             {"ENV_NAME": env_name, "IMAGE": image, "PORT": port, "CPU": cpu, "MEMORY": memory})
+        pvc_yaml = load_yaml_template(
+            os.path.join(k8s_path, "pvc.yaml"),
+            {"ENV_NAME": env_name}
+        )
+
+        deployment_yaml = load_yaml_template(
+            os.path.join(k8s_path, "deployment.yaml"),
+            {
+                "ENV_NAME": env_name,
+                "IMAGE": image,
+                "PORT": port,
+                "CPU": cpu,
+                "MEMORY": memory
+            }
+        )
 
         service_name = f"{env_name}-svc"
         node_port = 30000 + int(env_id[:3], 16) % 2000
 
-        service_yaml = load_yaml_template(os.path.join(k8s_path, "service.yaml"),
-                                          {"ENV_NAME": env_name, "SERVICE_NAME": service_name, "PORT": port, "NODE_PORT": node_port})
+        service_yaml = load_yaml_template(
+            os.path.join(k8s_path, "service.yaml"),
+            {
+                "ENV_NAME": env_name,
+                "SERVICE_NAME": service_name,
+                "PORT": port,
+                "NODE_PORT": node_port
+            }
+        )
 
         pvc_file = f"/tmp/pvc-{env_id}.yaml"
         dep_file = f"/tmp/deploy-{env_id}.yaml"
@@ -315,6 +358,7 @@ def create_env():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # ---------------- START ----------------
 if __name__ == '__main__':

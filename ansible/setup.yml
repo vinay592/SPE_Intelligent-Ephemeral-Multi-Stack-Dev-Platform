@@ -3,17 +3,17 @@
 
   tasks:
 
-    - name: Remove conflicting containerd
-      apt:
-        name: containerd
-        state: absent
-      ignore_errors: yes
+    - name: Remove conflicting containerd packages
+      shell: |
+        apt-get remove -y containerd containerd.io || true
 
-    - name: Install Docker
-      apt:
-        name: docker.io
-        state: present
-      ignore_errors: yes
+    - name: Install Docker (safe)
+      shell: |
+        if ! command -v docker > /dev/null
+        then
+          apt-get update
+          apt-get install -y docker.io
+        fi
 
     - name: Start Docker
       service:
@@ -37,15 +37,14 @@
           install minikube-linux-amd64 /usr/local/bin/minikube
         fi
 
-    - name: Start Minikube (FIXED)
+    - name: Start Minikube (only if not running)
       shell: |
-        if ! minikube status | grep -q "Running"
-        then
-          minikube start --driver=docker --force
-        fi
+        minikube status | grep -q "Running" || minikube start --driver=docker
 
-    - name: Enable Metrics Server
-      shell: minikube addons enable metrics-server || true
+    - name: Enable Metrics Server (only once)
+      shell: |
+        minikube addons list | grep metrics-server | grep enabled || minikube addons enable metrics-server
 
-    - name: Create Namespace
-      shell: kubectl create namespace dev-platform || true
+    - name: Create Namespace (only if not exists)
+      shell: |
+        kubectl get namespace dev-platform || kubectl create namespace dev-platform
