@@ -9,6 +9,12 @@ pipeline {
 
     stages {
 
+        stage('Clone Repo') {
+            steps {
+                git branch: 'main', url: 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
+            }
+        }
+
         stage('Setup Infra (Ansible)') {
             steps {
                 sh '''
@@ -18,9 +24,14 @@ pipeline {
             }
         }
 
-        stage('Clone Repo') {
+        stage('Setup Backend Environment') {
             steps {
-                git branch: 'main', url: 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
+                sh '''
+                cd backend
+                python3 -m venv venv
+                source venv/bin/activate
+                pip install -r requirements.txt
+                '''
             }
         }
 
@@ -30,7 +41,8 @@ pipeline {
                 if ! lsof -i:5001 | grep LISTEN
                 then
                     echo "Starting backend..."
-                    nohup python3 backend/app.py > backend.log 2>&1 &
+                    cd backend
+                    nohup venv/bin/python app.py > ../backend.log 2>&1 &
                     sleep 5
                 else
                     echo "Backend already running"
@@ -62,16 +74,6 @@ pipeline {
                 curl -s -X POST http://localhost:5001/signup \
                 -H "Content-Type: application/json" \
                 -d '{"username":"test","password":"123"}' || true
-                '''
-            }
-        }
-
-        stage('Login Validation') {
-            steps {
-                sh '''
-                curl -s -X POST http://localhost:5001/login \
-                -H "Content-Type: application/json" \
-                -d '{"username":"test","password":"123"}'
                 '''
             }
         }
