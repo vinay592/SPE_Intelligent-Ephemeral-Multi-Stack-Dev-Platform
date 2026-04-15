@@ -1,20 +1,35 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flask-env
+  name: {{ENV_NAME}}
+  namespace: dev-platform
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: flask-env
+      app: {{ENV_NAME}}
   template:
     metadata:
       labels:
-        app: flask-env
+        app: {{ENV_NAME}}
     spec:
       containers:
-         - name: flask-container
-           image: flask-env
-           imagePullPolicy: Never
-           ports:
-           - containerPort: 5001
+      - name: app-container
+        image: {{IMAGE}}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{PORT}}
+        resources:
+          requests:
+            memory: "{{MEMORY}}"
+            cpu: "{{CPU}}"
+          limits:
+            memory: "{{MEMORY}}"
+            cpu: "{{CPU}}"
+        volumeMounts:
+        - mountPath: /data
+          name: storage
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: {{ENV_NAME}}-pvc
