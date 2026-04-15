@@ -1,11 +1,11 @@
 pipeline {
 agent any
+
 environment {
     STACK = "flask"
     USER = "test"
     IMAGE_NAME = "vinayvb18/${STACK}-env"
 }
-
 
 stages {
 
@@ -26,27 +26,29 @@ stages {
 
     stage('Setup Backend Environment') {
         steps {
-            sh '''
-            cd backend
-            python3 -m venv venv
-            venv/bin/pip install -r requirements.txt
-            '''
+            dir('backend') {
+                sh '''
+                python3 -m venv venv
+                venv/bin/pip install -r requirements.txt
+                '''
+            }
         }
     }
 
     stage('Ensure Backend Running') {
         steps {
-            sh '''
-            if ! lsof -i:5001 | grep LISTEN
-            then
-                echo "Starting backend..."
-                cd backend
-                nohup venv/bin/python app.py > ../backend.log 2>&1 &
-                sleep 5
-            else
-                echo "Backend already running"
-            fi
-            '''
+            dir('backend') {
+                sh '''
+                if ! lsof -i:5001 | grep LISTEN
+                then
+                    echo "Starting backend..."
+                    nohup venv/bin/python app.py > ../backend.log 2>&1 &
+                    sleep 5
+                else
+                    echo "Backend already running"
+                fi
+                '''
+            }
         }
     }
 
@@ -129,6 +131,8 @@ stages {
     stage('Deploy (Ephemeral Env)') {
         steps {
             script {
+                sh "sleep 5"
+
                 def response = sh(
                     script: """
                     curl -s -X POST http://localhost:5001/create-env \
@@ -151,7 +155,7 @@ stages {
             -H "Content-Type: application/json" \
             -d '{
                 "event": "jenkins_pipeline",
-                "status": "success",
+                "status": "${currentBuild.currentResult}",
                 "stack": "${STACK}",
                 "build": "${BUILD_NUMBER}"
             }' || true
@@ -181,6 +185,7 @@ post {
              body: "Something failed ❌"
     }
 }
+
 
 }
 

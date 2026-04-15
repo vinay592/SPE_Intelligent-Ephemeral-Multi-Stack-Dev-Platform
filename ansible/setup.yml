@@ -7,28 +7,39 @@
       apt:
         name: docker.io
         state: present
-        update_cache: yes
+      ignore_errors: yes
 
     - name: Start Docker
       service:
         name: docker
         state: started
+        enabled: yes
 
-    - name: Install kubectl
+    - name: Install kubectl (if not exists)
       shell: |
-        curl -LO "https://dl.k8s.io/release/stable/bin/linux/amd64/kubectl"
-        install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        if ! command -v kubectl > /dev/null
+        then
+          curl -LO "https://dl.k8s.io/release/stable/bin/linux/amd64/kubectl"
+          install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        fi
 
-    - name: Install Minikube
+    - name: Install Minikube (if not exists)
       shell: |
-        curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-        install minikube-linux-amd64 /usr/local/bin/minikube
+        if ! command -v minikube > /dev/null
+        then
+          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+          install minikube-linux-amd64 /usr/local/bin/minikube
+        fi
 
-    - name: Start Minikube
-      shell: minikube start --driver=docker
+    - name: Start Minikube (if not running)
+      shell: |
+        if ! minikube status | grep -q "Running"
+        then
+          minikube start --driver=docker
+        fi
 
     - name: Enable Metrics Server
-      shell: minikube addons enable metrics-server
+      shell: minikube addons enable metrics-server || true
 
     - name: Create Namespace
       shell: kubectl create namespace dev-platform || true
