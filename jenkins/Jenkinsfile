@@ -1,20 +1,22 @@
 pipeline {
     agent any
 
-    parameters {
-        choice(
-            name: 'STACK',
-            choices: ['flask', 'mern', 'java', 'ml'],
-            description: 'Choose stack'
-        )
-        string(
-            name: 'USER_ID',
-            defaultValue: 'vinay',
-            description: 'Enter user name'
-        )
+    environment {
+        STACK = "flask"
+        USER = "test"
+        IMAGE_NAME = "vinayvb18/${STACK}-env"
     }
 
     stages {
+
+        stage('Setup Infra (Ansible)') {
+            steps {
+                sh '''
+                echo "Running Ansible setup..."
+                ansible-playbook ansible/setup.yml || true
+                '''
+            }
+        }
 
         stage('Clone Repo') {
             steps {
@@ -25,119 +27,115 @@ pipeline {
         stage('Ensure Backend Running') {
             steps {
                 sh '''
-                echo "Checking backend..."
-
-                if lsof -i:5001 | grep LISTEN
+                if ! lsof -i:5001 | grep LISTEN
                 then
-                    echo "Backend running ✅"
-                else
-                    echo "Starting backend 🚀"
+                    echo "Starting backend..."
                     nohup python3 backend/app.py > backend.log 2>&1 &
                     sleep 5
+                else
+                    echo "Backend already running"
                 fi
                 '''
             }
         }
 
-        // ✅ NEW: WAIT FOR BACKEND READY
-        stage('Wait for Backend Ready') {
+        stage('Wait for Backend') {
             steps {
                 sh '''
-                echo "Waiting for backend..."
-
                 for i in {1..10}
                 do
                     if curl -s http://localhost:5001/ > /dev/null
                     then
-                        echo "Backend ready ✅"
+                        echo "Backend ready"
                         exit 0
                     fi
                     sleep 2
                 done
-
-                echo "Backend not responding ❌"
                 exit 1
                 '''
             }
         }
 
-       
+        stage('Ensure User Exists') {
+            steps {
+                sh '''
+                curl -s -X POST http://localhost:5001/signup \
+                -H "Content-Type: application/json" \
+                -d '{"username":"test","password":"123"}' || true
+                '''
+            }
+        }
+
+        stage('Login Validation') {
+            steps {
+                sh '''
+                curl -s -X POST http://localhost:5001/login \
+                -H "Content-Type: application/json" \
+                -d '{"username":"test","password":"123"}'
+                '''
+            }
+        }
 
         stage('Build & Push Image') {
             steps {
-                sh '''
-                echo "Logging into Docker Hub..."
-                echo Vinay_vb18 | docker login -u vinayvb18 --password-stdin
+                withCredentials([string(credentialsId: 'docker-pass', variable: 'DOCKER_PASS')]) {
+                    sh '''
+                    echo $DOCKER_PASS | docker login -u vinayvb18 --password-stdin
 
-                echo "Building image..."
-               docker build -t ${STACK}-env:${BUILD_NUMBER} templates/${STACK}
+                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} templates/${STACK}
 
-
-                echo "Tagging image..."
-                docker tag ${STACK}-env:${BUILD_NUMBER} vinayvb18/${STACK}-env:${BUILD_NUMBER}
-
-                echo "Pushing to Docker Hub..."
-                docker push vinayvb18/${STACK}-env:${BUILD_NUMBER}
-                '''
+                    docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                    '''
+                }
             }
         }
 
-        stage('Security Scan (Trivy)') {
+        stage('Security Scan') {
             steps {
                 sh '''
-                echo "Running Trivy scan 🔐..."
-                trivy image --severity HIGH,CRITICAL ${STACK}-env:v1 || true
+                trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${BUILD_NUMBER} || true
                 '''
             }
         }
 
-        stage('Trigger Deployment') {
+        stage('Deploy (Ephemeral Env)') {
             steps {
                 script {
                     def response = sh(
                         script: """
                         curl -s -X POST http://localhost:5001/create-env \
                         -H "Content-Type: application/json" \
-                        -d '{"stack":"${params.STACK}", "user":"${params.USER_ID}"}'
+                        -d '{"stack":"${STACK}", "user":"${USER}", "image":"${IMAGE_NAME}:${BUILD_NUMBER}"}'
                         """,
                         returnStdout: true
                     ).trim()
 
                     echo "Deployment Response:"
                     echo response
-
-                    def json = readJSON text: response
-                    def port = json.access_port
-                    env.APP_PORT = port
                 }
             }
         }
 
         stage('Health Check') {
-    steps {
-        script {
-            echo "App deployed successfully 🚀"
-            echo "Access your environments from frontend dashboard"
-
-            sh '''
-            echo "Minikube IP:"
-            minikube ip
-            '''
+            steps {
+                sh '''
+                echo "Deployment done 🚀"
+                minikube ip
+                '''
+            }
         }
-    }
-}
     }
 
     post {
         success {
             mail to: 'vinayvb592@gmail.com',
-                 subject: "SUCCESS: ${params.STACK}",
-                 body: "Build + Deployment successful 🚀"
+                 subject: "SUCCESS: ${STACK}",
+                 body: "Deployment successful 🚀"
         }
         failure {
             mail to: 'vinayvb592@gmail.com',
-                 subject: "FAILED: ${params.STACK}",
-                 body: "Something went wrong ❌"
+                 subject: "FAILED: ${STACK}",
+                 body: "Something failed ❌"
         }
     }
 }

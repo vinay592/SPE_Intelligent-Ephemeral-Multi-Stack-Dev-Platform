@@ -1,0 +1,34 @@
+- hosts: localhost
+  become: yes
+
+  tasks:
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+
+    - name: Install kubectl
+      shell: |
+        curl -LO "https://dl.k8s.io/release/stable/bin/linux/amd64/kubectl"
+        install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+    - name: Install Minikube
+      shell: |
+        curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        install minikube-linux-amd64 /usr/local/bin/minikube
+
+    - name: Start Minikube
+      shell: minikube start --driver=docker
+
+    - name: Enable Metrics Server
+      shell: minikube addons enable metrics-server
+
+    - name: Create Namespace
+      shell: kubectl create namespace dev-platform || true

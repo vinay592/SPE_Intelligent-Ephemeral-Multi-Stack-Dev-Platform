@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - Dev Platform</title>
+    <style>
+    body {
+        font-family: "Segoe UI", Arial;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+    }
+
+    .box {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        width: 320px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        text-align: center;
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    h2 {
+        margin-bottom: 20px;
+        color: #333;
+    }
+
+    input {
+        width: 100%;
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        outline: none;
+        transition: 0.2s;
+    }
+
+    input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 5px rgba(102,126,234,0.5);
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 10px;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.2s;
+    }
+
+    .login {
+        background: #28a745;
+    }
+
+    .login:hover {
+        background: #218838;
+        transform: scale(1.02);
+    }
+
+    .signup {
+        background: #007bff;
+    }
+
+    .signup:hover {
+        background: #0056b3;
+        transform: scale(1.02);
+    }
+
+    .msg {
+        margin-top: 10px;
+        color: red;
+        font-size: 14px;
+    }
+
+    @keyframes fadeIn {
+        from {opacity: 0; transform: translateY(20px);}
+        to {opacity: 1; transform: translateY(0);}
+    }
+</style>
+</head>
+<body>
+
+<div class="box">
+    <h2>Login / Signup</h2>
+
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+
+    <button class="login" onclick="login()">Login</button>
+    <button class="signup" onclick="signup()">Signup</button>
+
+    <div class="msg" id="msg"></div>
+</div>
+
+<script>
+const API = "http://localhost:5001";
+
+function setLoading(isLoading)
+{
+    const buttons = document.querySelectorAll("button");
+
+    buttons.forEach(btn => {
+        btn.disabled = isLoading;
+        btn.innerText = isLoading ? "Please wait..." : btn.classList.contains("login") ? "Login" : "Signup";
+    });
+}
+
+function showMsg(text, color="red")
+{
+    const msg = document.getElementById("msg");
+    msg.style.color = color;
+    msg.innerText = text;
+}
+
+function login()
+{
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    if(!username || !password)
+    {
+        showMsg("⚠️ Enter username & password");
+        return;
+    }
+
+    setLoading(true);
+    showMsg("🔐 Logging in...", "black");
+
+    fetch(API + "/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({username, password})
+    })
+    .then(res => res.json())
+    .then(data => {
+        setLoading(false);
+
+        if(data.status)
+        {
+            showMsg("✅ Login successful!", "green");
+
+            localStorage.setItem("user", username);
+
+            setTimeout(() => {
+                window.location.href = "index.html";
+            }, 800);
+        }
+        else
+        {
+            showMsg(data.error || "Login failed");
+        }
+    })
+    .catch(() => {
+        setLoading(false);
+        showMsg("❌ Server error");
+    });
+}
+
+function signup()
+{
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    if(!username || !password)
+    {
+        showMsg("⚠️ Enter username & password");
+        return;
+    }
+
+    setLoading(true);
+    showMsg("📝 Creating account...", "black");
+
+    fetch(API + "/signup", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({username, password})
+    })
+    .then(res => res.json())
+    .then(data => {
+        setLoading(false);
+
+        if(data.status)
+        {
+            showMsg("🎉 Signup successful! Now login.", "green");
+        }
+        else
+        {
+            showMsg(data.error || "Signup failed");
+        }
+    })
+    .catch(() => {
+        setLoading(false);
+        showMsg("❌ Server error");
+    });
+}
+</script>
+</body>
+</html>
