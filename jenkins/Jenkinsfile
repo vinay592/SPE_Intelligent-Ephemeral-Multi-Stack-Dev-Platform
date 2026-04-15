@@ -1,192 +1,153 @@
 pipeline {
-agent any
+    agent any
 
-environment {
-    STACK = "flask"
-    USER = "test"
-    IMAGE_NAME = "vinayvb18/${STACK}-env"
-}
-
-stages {
-
-    stage('Clone Repo') {
-        steps {
-            git branch: 'main', url: 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
-        }
+    environment {
+        STACK = "flask"
+        USER = "test"
+        IMAGE_NAME = "vinayvb18/${STACK}-env"
     }
 
-    stage('Setup Infra (Ansible)') {
-        steps {
-            sh '''
-            echo "Running Ansible setup..."
-            ansible-playbook ansible/setup.yml || true
-            '''
-        }
-    }
+    stages {
 
-    stage('Setup Backend Environment') {
-        steps {
-            dir('backend') {
+        stage('Clone Repo') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
+            }
+        }
+
+        stage('Setup Backend Environment') {
+            steps {
+                dir('backend') {
+                    sh '''
+                    python3 -m venv venv
+                    venv/bin/python -m pip install --upgrade pip
+                    venv/bin/python -m pip install -r requirements.txt
+                    '''
+                }
+            }
+        }
+
+        stage('Start MongoDB') {
+            steps {
                 sh '''
-                python3 -m venv venv
-                venv/bin/python -m pip install --upgrade pip
-		venv/bin/python -m pip install -r requirements.txt
+                echo "Starting MongoDB..."
+
+                docker rm -f mongo || true
+
+                docker run -d \
+                --name mongo \
+                -p 27017:27017 \
+                mongo:6
+
+                # wait for mongo
+                for i in {1..10}
+                do
+                    if nc -z localhost 27017
+                    then
+                        echo "MongoDB ready"
+                        exit 0
+                    fi
+                    sleep 2
+                done
+
+                echo "MongoDB failed ❌"
+                exit 1
                 '''
             }
         }
-    }
 
-    stage('Ensure Backend Running') {
-        steps {
-            dir('backend') {
-                sh '''
-                if ! lsof -i:5001 | grep LISTEN
-                then
+        stage('Start & Test Backend') {
+            steps {
+                dir('backend') {
+                    sh '''
                     echo "Starting backend..."
+
+                    pkill -f "app.py" || true
+
                     nohup venv/bin/python app.py > ../backend.log 2>&1 &
-                    sleep 5
-                else
-                    echo "Backend already running"
-                fi
-                '''
-            }
-        }
-    }
 
-    stage('Wait for Backend') {
-        steps {
-            sh '''
-            for i in {1..10}
-            do
-                if curl -s http://localhost:5001/ > /dev/null
-                then
-                    echo "Backend ready"
-                    exit 0
-                fi
-                sleep 2
-            done
-            echo "Backend not responding"
-            exit 1
-            '''
-        }
-    }
+                    # wait backend
+                    for i in {1..15}
+                    do
+                        if curl -s http://localhost:5001/ > /dev/null
+                        then
+                            echo "Backend ready"
+                            break
+                        fi
+                        sleep 2
+                    done
 
-    stage('Test API') {
-        steps {
-            sh '''
-            echo "Running API tests..."
+                    echo "Running API tests..."
 
-            curl -s -X POST http://localhost:5001/signup \
-            -H "Content-Type: application/json" \
-            -d '{"username":"testuser","password":"123"}' > /dev/null || true
-
-            login_res=$(curl -s -X POST http://localhost:5001/login \
-            -H "Content-Type: application/json" \
-            -d '{"username":"testuser","password":"123"}')
-
-            echo "Login response: $login_res"
-            echo "$login_res" | grep '"status": true' || exit 1
-
-            wrong_res=$(curl -s -X POST http://localhost:5001/login \
-            -H "Content-Type: application/json" \
-            -d '{"username":"testuser","password":"wrong"}')
-
-            echo "Wrong login response: $wrong_res"
-            echo "$wrong_res" | grep '"status": false' || exit 1
-
-            echo "All tests passed ✅"
-            '''
-        }
-    }
-
-    stage('Ensure User Exists') {
-        steps {
-            sh '''
-            curl -s -X POST http://localhost:5001/signup \
-            -H "Content-Type: application/json" \
-            -d '{"username":"test","password":"123"}' || true
-            '''
-        }
-    }
-
-    stage('Build & Push Image') {
-        steps {
-            withCredentials([string(credentialsId: 'docker-pass', variable: 'DOCKER_PASS')]) {
-                sh '''
-                echo $DOCKER_PASS | docker login -u vinayvb18 --password-stdin
-                docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} templates/${STACK}
-                docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-                '''
-            }
-        }
-    }
-
-    stage('Security Scan') {
-        steps {
-            sh '''
-            trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${BUILD_NUMBER} || true
-            '''
-        }
-    }
-
-    stage('Deploy (Ephemeral Env)') {
-        steps {
-            script {
-                sh "sleep 5"
-
-                def response = sh(
-                    script: """
-                    curl -s -X POST http://localhost:5001/create-env \
+                    curl -s -X POST http://localhost:5001/signup \
                     -H "Content-Type: application/json" \
-                    -d '{"stack":"${STACK}", "user":"${USER}", "image":"${IMAGE_NAME}:${BUILD_NUMBER}"}'
-                    """,
-                    returnStdout: true
-                ).trim()
+                    -d '{"username":"testuser","password":"123"}' > /dev/null || true
 
-                echo "Deployment Response:"
-                echo response
+                    login_res=$(curl -s -X POST http://localhost:5001/login \
+                    -H "Content-Type: application/json" \
+                    -d '{"username":"testuser","password":"123"}')
+
+                    echo "$login_res" | grep '"status": true' || exit 1
+
+                    wrong_res=$(curl -s -X POST http://localhost:5001/login \
+                    -H "Content-Type: application/json" \
+                    -d '{"username":"testuser","password":"wrong"}')
+
+                    echo "$wrong_res" | grep '"status": false' || exit 1
+
+                    echo "Backend OK ✅"
+                    '''
+                }
+            }
+        }
+
+        stage('Build & Push Image') {
+            steps {
+                withCredentials([string(credentialsId: 'docker-pass', variable: 'DOCKER_PASS')]) {
+                    sh '''
+                    echo $DOCKER_PASS | docker login -u vinayvb18 --password-stdin
+                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} templates/${STACK}
+                    docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy (Ephemeral Env)') {
+            steps {
+                script {
+                    def response = sh(
+                        script: """
+                        curl -s -X POST http://localhost:5001/create-env \
+                        -H "Content-Type: application/json" \
+                        -d '{"stack":"${STACK}", "user":"${USER}", "image":"${IMAGE_NAME}:${BUILD_NUMBER}"}'
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Deployment Response:"
+                    echo response
+                }
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                sh '''
+                echo "Deployment done 🚀"
+                minikube ip
+                '''
             }
         }
     }
 
-    stage('Send Jenkins Log to ELK') {
-        steps {
-            sh """
-            curl -X POST http://localhost:9200/app-logs/_doc \
-            -H "Content-Type: application/json" \
-            -d '{
-                "event": "jenkins_pipeline",
-                "status": "${currentBuild.currentResult}",
-                "stack": "${STACK}",
-                "build": "${BUILD_NUMBER}"
-            }' || true
-            """
+    post {
+        success {
+            echo "SUCCESS ✅"
         }
-    }
-
-    stage('Health Check') {
-        steps {
-            sh '''
-            echo "Deployment done 🚀"
-            minikube ip
-            '''
+        failure {
+            echo "FAILED ❌"
         }
     }
 }
-
-post {
-    success {
-        mail to: 'vinayvb592@gmail.com',
-             subject: "SUCCESS: ${STACK}",
-             body: "Deployment successful 🚀"
-    }
-    failure {
-        mail to: 'vinayvb592@gmail.com',
-             subject: "FAILED: ${STACK}",
-             body: "Something failed ❌"
-    }
-}
-
-
-}
-
