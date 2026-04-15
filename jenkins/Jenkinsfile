@@ -8,6 +8,7 @@ environment {
     IMAGE_NAME = "vinayvb18/${STACK}-env"
 }
 
+
 stages {
 
     stage('Clone Repo') {
@@ -30,8 +31,7 @@ stages {
             sh '''
             cd backend
             python3 -m venv venv
-            source venv/bin/activate
-            pip install -r requirements.txt
+            venv/bin/pip install -r requirements.txt
             '''
         }
     }
@@ -64,6 +64,7 @@ stages {
                 fi
                 sleep 2
             done
+            echo "Backend not responding"
             exit 1
             '''
         }
@@ -74,28 +75,23 @@ stages {
             sh '''
             echo "Running API tests..."
 
-            # Signup
             curl -s -X POST http://localhost:5001/signup \
             -H "Content-Type: application/json" \
             -d '{"username":"testuser","password":"123"}' > /dev/null || true
 
-            # POSITIVE: Login
             login_res=$(curl -s -X POST http://localhost:5001/login \
             -H "Content-Type: application/json" \
             -d '{"username":"testuser","password":"123"}')
 
             echo "Login response: $login_res"
+            echo "$login_res" | grep '"status": true' || exit 1
 
-            echo "$login_res" | grep "login success" || exit 1
-
-            # NEGATIVE: Wrong password
             wrong_res=$(curl -s -X POST http://localhost:5001/login \
             -H "Content-Type: application/json" \
             -d '{"username":"testuser","password":"wrong"}')
 
             echo "Wrong login response: $wrong_res"
-
-            echo "$wrong_res" | grep "Invalid password" || exit 1
+            echo "$wrong_res" | grep '"status": false' || exit 1
 
             echo "All tests passed ✅"
             '''
@@ -117,9 +113,7 @@ stages {
             withCredentials([string(credentialsId: 'docker-pass', variable: 'DOCKER_PASS')]) {
                 sh '''
                 echo $DOCKER_PASS | docker login -u vinayvb18 --password-stdin
-
                 docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} templates/${STACK}
-
                 docker push ${IMAGE_NAME}:${BUILD_NUMBER}
                 '''
             }
@@ -154,16 +148,16 @@ stages {
 
     stage('Send Jenkins Log to ELK') {
         steps {
-            sh '''
+            sh """
             curl -X POST http://localhost:9200/app-logs/_doc \
             -H "Content-Type: application/json" \
             -d '{
                 "event": "jenkins_pipeline",
                 "status": "success",
-                "stack": "'${STACK}'",
-                "build": "'${BUILD_NUMBER}'"
+                "stack": "${STACK}",
+                "build": "${BUILD_NUMBER}"
             }' || true
-            '''
+            """
         }
     }
 
