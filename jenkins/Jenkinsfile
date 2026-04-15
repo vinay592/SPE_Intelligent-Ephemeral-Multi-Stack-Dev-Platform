@@ -1,7 +1,5 @@
 pipeline {
 agent any
-
-```
 environment {
     STACK = "flask"
     USER = "test"
@@ -183,7 +181,6 @@ post {
              body: "Something failed ❌"
     }
 }
-```
 
 }
 
