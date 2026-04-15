@@ -8,7 +8,9 @@ from flask_cors import CORS
 import json
 import os
 from pymongo import MongoClient
-
+import logging
+from elasticsearch import Elasticsearch
+import bcrypt
 
 app = Flask(__name__)
 CORS(app)
@@ -21,6 +23,28 @@ STACK_CONFIG = {
     "ml": {"image": "vinayvb18/ml-env:v6", "port": 8888}
 }
 
+logging.basicConfig(
+    filename="app.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(message)s"
+)
+
+# 🔥 ELASTICSEARCH INIT (SAFE + RETRY)
+es = None
+
+for i in range(5):
+    try:
+        es = Elasticsearch("http://127.0.0.1:9200")
+        es.info()
+        print("Elasticsearch connected ✅")
+        break
+    except:
+        print("Retrying Elasticsearch...", i+1)
+        time.sleep(5)
+
+if not es:
+    print("Elasticsearch not available ⚠️")
+
 NAMESPACE = "dev-platform"
 
 # ---------------- MONGODB ----------------
@@ -32,7 +56,6 @@ users_col = db["users"]
 envs_col = db["environments"]
 
 # ---------------- HELPERS ----------------
-
 def load_yaml_template(path, replacements):
     with open(path, "r") as f:
         content = f.read()
@@ -43,30 +66,32 @@ def load_yaml_template(path, replacements):
     return content
 
 def delete_k8s_resources(name):
-    print(f"Deleting resources for {name}", flush=True)
-
     subprocess.run(["kubectl", "delete", "deployment", name, "-n", NAMESPACE, "--ignore-not-found"], check=False)
     subprocess.run(["kubectl", "delete", "svc", f"{name}-svc", "-n", NAMESPACE, "--ignore-not-found"], check=False)
     subprocess.run(["kubectl", "delete", "pvc", f"{name}-pvc", "-n", NAMESPACE, "--ignore-not-found"], check=False)
 
 # ---------------- TTL CLEANUP ----------------
-TTL = 1800  # 30 min
+TTL = 1800
 
 def cleanup_expired_envs():
     while True:
         time.sleep(60)
-
         try:
             now = time.time()
-            print("[TTL CHECK RUNNING]", flush=True)
-
             for env in envs_col.find():
                 age = now - env.get("created_at", now)
 
                 if age >= TTL:
-                    print(f"[AUTO DELETE] {env['env_name']}", flush=True)
                     delete_k8s_resources(env["env_name"])
                     envs_col.delete_one({"env_name": env["env_name"]})
+
+                    logging.info(f"TTL DELETE: {env['env_name']}")
+
+                    if es:
+                        es.index(index="app-logs", document={
+                            "event": "ttl_delete",
+                            "env": env["env_name"]
+                        })
 
         except Exception as e:
             print("TTL Error:", e)
@@ -76,11 +101,9 @@ def cleanup_expired_envs():
 def home():
     return "Dev Platform Backend Running 🚀"
 
-# -------- GET ENVS (FROM DB) --------
 @app.route('/envs', methods=['GET'])
 def list_envs():
-    result = {} 
-
+    result = {}
     for env in envs_col.find():
         user = env["user"]
 
@@ -95,37 +118,66 @@ def list_envs():
 
     return jsonify(result)
 
-# -------- DELETE --------
 @app.route('/delete-env', methods=['POST'])
 def delete_env():
     data = request.get_json()
-
-    if not data or "env_name" not in data:
-        return jsonify({"error": "env_name required"}), 400
-
     env_name = data["env_name"]
 
-    try:
-        delete_k8s_resources(env_name)
-        envs_col.delete_one({"env_name": env_name})
+    delete_k8s_resources(env_name)
+    envs_col.delete_one({"env_name": env_name})
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    logging.info(f"ENV DELETED: {env_name}")
 
-    return jsonify({
-        "status": "deleted",
-        "env_name": env_name
-    })
+    if es:
+        es.index(index="app-logs", document={
+            "event": "delete_env",
+            "env": env_name
+        })
 
-# -------- OPEN ENV --------
+    return jsonify({"status": "deleted"})
+
 @app.route('/open-env', methods=['POST'])
 def open_env():
-    data = request.json
-    env_name = data.get("env_name")
-
     try:
+        data = request.json
+        env_name = data.get("env_name")
+
+        # 1. WAIT FOR POD TO BE READY
+        for i in range(15):  # ~30 sec max
+            pod_status = subprocess.check_output(
+                ["kubectl", "get", "pods", "-n", NAMESPACE,
+                 "-l", f"app={env_name}",
+                 "-o", "jsonpath={.items[0].status.phase}"],
+                text=True
+            ).strip()
+
+            print(f"Pod status: {pod_status}")
+
+            if pod_status == "Running":
+                break
+
+            time.sleep(2)
+        else:
+            return jsonify({"error": "Pod not ready"}), 500
+
+        # 2. WAIT FOR CONTAINER READY (IMPORTANT)
+        for i in range(10):
+            ready = subprocess.check_output(
+                ["kubectl", "get", "pods", "-n", NAMESPACE,
+                 "-l", f"app={env_name}",
+                 "-o", "jsonpath={.items[0].status.containerStatuses[0].ready}"],
+                text=True
+            ).strip()
+
+            if ready == "true":
+                break
+
+            time.sleep(2)
+
+        # 3. NOW SAFE TO EXPOSE SERVICE
         output = subprocess.check_output(
-            ["minikube", "service", f"{env_name}-svc", "-n", NAMESPACE, "--url"],
+            ["minikube", "service", f"{env_name}-svc",
+             "-n", NAMESPACE, "--url"],
             text=True
         ).strip()
 
@@ -133,21 +185,16 @@ def open_env():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-#--------- SIGN-IN and LOG-IN----
-import bcrypt
-
+    
+# -------- AUTH --------
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.json
-
     username = data.get("username")
     password = data.get("password")
 
-    if not username or not password:
-        return jsonify({"error": "Missing fields"}), 400
-
     if users_col.find_one({"username": username}):
-        return jsonify({"error": "User already exists"}), 400
+        return jsonify({"error": "User exists"}), 400
 
     hashed_pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
 
@@ -156,31 +203,39 @@ def signup():
         "password": hashed_pw
     })
 
-    return jsonify({"status": "user created"})
+    logging.info(f"SIGNUP SUCCESS: {username}")
 
+    if es:
+        es.index(index="app-logs", document={
+            "event": "signup",
+            "user": username
+        })
+
+    return jsonify({"status": True})
 
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
-
     username = data.get("username")
     password = data.get("password")
-
-    if not username or not password:
-        return jsonify({"error": "Missing fields"}), 400
 
     user = users_col.find_one({"username": username})
 
     if not user:
-        return jsonify({"error": "User not found"}), 404
+        return jsonify({"status": False}), 404
 
     if not bcrypt.checkpw(password.encode(), user["password"]):
-        return jsonify({"error": "Invalid password"}), 401
+        return jsonify({"status": False}), 401
 
-    return jsonify({
-        "status": "login success",
-        "username": username
-    })
+    logging.info(f"LOGIN SUCCESS: {username}")
+
+    if es:
+        es.index(index="app-logs", document={
+            "event": "login",
+            "user": username
+        })
+
+    return jsonify({"status": True})
 
 # -------- CREATE ENV --------
 @app.route('/create-env', methods=['POST'])
@@ -188,20 +243,11 @@ def create_env():
     try:
         data = request.json
         user = data.get("user", "default").lower()
-
-        if not data or "stack" not in data:
-            return jsonify({"error": "Stack is required"}), 400
-
         stack = data["stack"]
 
-        if stack not in STACK_CONFIG:
-            return jsonify({"error": "Invalid stack"}), 400
-
-        # -------- LIMIT CHECK (DB BASED) --------
         current_envs = list(envs_col.find({"user": user}))
-
         if len(current_envs) >= 3:
-            return jsonify({"error": "Max 3 environments allowed"}), 400
+            return jsonify({"error": "Max 3 environments"}), 400
 
         config = STACK_CONFIG[stack]
         image = data.get("image", config["image"])
@@ -210,15 +256,8 @@ def create_env():
         cpu = data.get("cpu", "250m")
         memory = data.get("memory", "256Mi")
 
-        # enforce limits strictly
-        max_cpu = 500
-        max_memory = 512
-
-        cpu_val = int(cpu.replace("m", ""))
-        mem_val = int(memory.replace("Mi", ""))
-
-        cpu_val = min(cpu_val, max_cpu)     
-        mem_val = min(mem_val, max_memory)
+        cpu_val = min(int(cpu.replace("m", "")), 500)
+        mem_val = min(int(memory.replace("Mi", "")), 512)
 
         cpu = f"{cpu_val}m"
         memory = f"{mem_val}Mi"
@@ -229,57 +268,27 @@ def create_env():
         base_path = os.path.dirname(os.path.abspath(__file__))
         k8s_path = os.path.join(base_path, "..", "k8s")
 
-        # -------- YAML GENERATION --------
-        pvc_yaml = load_yaml_template(
-            os.path.join(k8s_path, "pvc.yaml"),
-            {"ENV_NAME": env_name}
-        )
-
-        deployment_yaml = load_yaml_template(
-            os.path.join(k8s_path, "deployment.yaml"),
-            {
-                "ENV_NAME": env_name,
-                "IMAGE": image,
-                "PORT": port,
-                "CPU": cpu,
-                "MEMORY": memory
-            }
-        )
+        pvc_yaml = load_yaml_template(os.path.join(k8s_path, "pvc.yaml"), {"ENV_NAME": env_name})
+        deployment_yaml = load_yaml_template(os.path.join(k8s_path, "deployment.yaml"),
+                                             {"ENV_NAME": env_name, "IMAGE": image, "PORT": port, "CPU": cpu, "MEMORY": memory})
 
         service_name = f"{env_name}-svc"
         node_port = 30000 + int(env_id[:3], 16) % 2000
 
-        service_yaml = load_yaml_template(
-            os.path.join(k8s_path, "service.yaml"),
-            {
-                "ENV_NAME": env_name,
-                "SERVICE_NAME": service_name,
-                "PORT": port,
-                "NODE_PORT": node_port
-            }
-        )
+        service_yaml = load_yaml_template(os.path.join(k8s_path, "service.yaml"),
+                                          {"ENV_NAME": env_name, "SERVICE_NAME": service_name, "PORT": port, "NODE_PORT": node_port})
 
-        # -------- WRITE TEMP FILES --------
         pvc_file = f"/tmp/pvc-{env_id}.yaml"
         dep_file = f"/tmp/deploy-{env_id}.yaml"
         svc_file = f"/tmp/service-{env_id}.yaml"
 
-        with open(pvc_file, "w") as f:
-            f.write(pvc_yaml)
+        open(pvc_file, "w").write(pvc_yaml)
+        open(dep_file, "w").write(deployment_yaml)
+        open(svc_file, "w").write(service_yaml)
 
-        with open(dep_file, "w") as f:
-            f.write(deployment_yaml)
-
-        with open(svc_file, "w") as f:
-            f.write(service_yaml)
-
-        # -------- APPLY --------
         subprocess.run(["kubectl", "apply", "-f", pvc_file], check=True)
         subprocess.run(["kubectl", "apply", "-f", dep_file], check=True)
         subprocess.run(["kubectl", "apply", "-f", svc_file], check=True)
-
-        # -------- STORE IN DB --------
-        print("SAVING TO DB:", user, env_name, node_port, flush=True)
 
         envs_col.insert_one({
             "user": user,
@@ -288,7 +297,15 @@ def create_env():
             "created_at": time.time()
         })
 
-        print("SAVED SUCCESSFULLY", flush=True)
+        logging.info(f"ENV CREATED: {env_name} by {user}")
+
+        if es:
+            es.index(index="app-logs", document={
+                "event": "create_env",
+                "user": user,
+                "env": env_name,
+                "port": node_port
+            })
 
         return jsonify({
             "env_name": env_name,
