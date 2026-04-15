@@ -16,7 +16,7 @@ spec:
       containers:
       - name: app-container
         image: {{IMAGE}}
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: {{PORT}}
         resources:
