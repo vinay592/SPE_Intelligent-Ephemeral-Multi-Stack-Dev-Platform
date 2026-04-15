@@ -3,6 +3,12 @@
 
   tasks:
 
+    - name: Remove conflicting containerd
+      apt:
+        name: containerd
+        state: absent
+      ignore_errors: yes
+
     - name: Install Docker
       apt:
         name: docker.io
@@ -31,11 +37,11 @@
           install minikube-linux-amd64 /usr/local/bin/minikube
         fi
 
-    - name: Start Minikube (if not running)
+    - name: Start Minikube (FIXED)
       shell: |
         if ! minikube status | grep -q "Running"
         then
-          minikube start --driver=docker
+          minikube start --driver=docker --force
         fi
 
     - name: Enable Metrics Server
