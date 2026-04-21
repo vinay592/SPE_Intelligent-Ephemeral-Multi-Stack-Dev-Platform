@@ -83,7 +83,7 @@ pipeline {
 
                 for i in {1..30}
                 do
-                    status=$(kubectl get pods -n dev-platform -l app=mongo -o jsonpath="{.items[0].status.phase}" 2>/dev/null || echo "NotReady")
+                    status=$(sudo -u vinay-v-bhandare kubectl get pods -n dev-platform -l app=mongo -o jsonpath="{.items[0].status.phase}" 2>/dev/null || echo "NotReady")
 
                     if [ "$status" = "Running" ]
                     then
@@ -96,7 +96,7 @@ pipeline {
 
                 pkill -f "kubectl port-forward" || true
 
-                nohup kubectl port-forward svc/mongo-svc 27017:27017 -n dev-platform > mongo.log 2>&1 &
+                sudo -u vinay-v-bhandare bash -c "nohup kubectl port-forward svc/mongo-svc 27017:27017 -n dev-platform > mongo.log 2>&1 &"
                 sleep 5
                 '''
             }
