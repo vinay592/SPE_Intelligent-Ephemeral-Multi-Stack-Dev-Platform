@@ -15,6 +15,11 @@ import bcrypt
 app = Flask(__name__)
 CORS(app)
 
+# Ensure kubectl can find the config even when run via sudo/Jenkins
+os.environ["HOME"] = "/home/vinay-v-bhandare"
+if "/snap/bin" not in os.environ.get("PATH", ""):
+    os.environ["PATH"] += ":/snap/bin"
+
 # ---------------- CONFIG ----------------
 STACK_CONFIG = {
     "flask": {"image": "vinayvb18/flask-env:latest", "port": 5001},
@@ -105,6 +110,10 @@ TTL = 1800
 def cleanup_expired_envs():
     while True:
         time.sleep(60)
+        # Ensure path access for cleanup too
+        if "/snap/bin" not in os.environ.get("PATH", ""):
+            os.environ["PATH"] += ":/snap/bin"
+        os.environ["HOME"] = "/home/vinay-v-bhandare"
         try:
             now = time.time()
             cutoff_time = now - TTL
@@ -144,6 +153,7 @@ def list_envs():
 
         result[user].append({
             "name": env["env_name"],
+            "stack": env.get("stack", "unknown"),
             "port": env["port"],
             "created_at": env.get("created_at", time.time())
         })
@@ -253,7 +263,7 @@ def signup():
         "user": username
     })
 
-    return jsonify({"status": True})
+    return jsonify({"status": True, "message": "Signup successful"})
 
 
 @app.route('/login', methods=['POST'])
@@ -277,7 +287,7 @@ def login():
         "user": username
     })
 
-    return jsonify({"status": True})
+    return jsonify({"status": True, "message": "Login successful"})
 
 
 # -------- CREATE ENV --------
@@ -355,13 +365,20 @@ def create_env():
         open(svc_file, "w").write(service_yaml)
         open(hpa_file, "w").write(hpa_yaml)
 
-        subprocess.run(["kubectl", "apply", "-f", pvc_file], check=True)
-        subprocess.run(["kubectl", "apply", "-f", dep_file], check=True)
-        subprocess.run(["kubectl", "apply", "-f", svc_file], check=True)
-        subprocess.run(["kubectl", "apply", "-f", hpa_file], check=True)
+        def run_kubectl(args):
+            res = subprocess.run(args, capture_output=True, text=True)
+            if res.returncode != 0:
+                raise Exception(f"Kubernetes error: {res.stderr or res.stdout}")
+            return res.stdout
+
+        run_kubectl(["kubectl", "apply", "-f", pvc_file])
+        run_kubectl(["kubectl", "apply", "-f", dep_file])
+        run_kubectl(["kubectl", "apply", "-f", svc_file])
+        run_kubectl(["kubectl", "apply", "-f", hpa_file])
 
         envs_col.insert_one({
             "user": user,
+            "stack": stack,
             "env_name": env_name,
             "port": node_port,
             "created_at": time.time()
