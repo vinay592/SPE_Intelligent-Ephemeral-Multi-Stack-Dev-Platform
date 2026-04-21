@@ -430,15 +430,39 @@ function openEnv(name) {
 function showLoadingScreen(url) {
     const win = window.open("", "_blank");
     win.document.write(`
-        <body style="background:#0f172a;color:white;display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif;">
-            <div style="width:50px;height:50px;border:4px solid rgba(255,255,255,0.2);border-top-color:#38bdf8;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:20px;"></div>
-            <h2>🚀 Routing to Ephemeral Cluster...</h2>
-            <p style="color:#94a3b8;">Establishing secure K8s ingress connection</p>
-            <style>@keyframes spin{100%{transform:rotate(360deg)}}</style>
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Routing to Cluster...</title>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+            <style>
+                body { background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; }
+                .loader { width: 60px; height: 60px; border: 5px solid rgba(255,255,255,0.1); border-top-color: #38bdf8; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 30px; box-shadow: 0 0 20px rgba(56, 189, 248, 0.4); }
+                @keyframes spin { 100% { transform: rotate(360deg); } }
+                h2 { margin: 10px 0; font-weight: 600; letter-spacing: -0.5px; }
+                p { color: #94a3b8; font-size: 15px; }
+                .status-container { text-align: center; background: rgba(255,255,255,0.03); padding: 30px 50px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(10px); }
+                .progress-bar { width: 250px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 10px; margin: 20px auto; overflow: hidden; }
+                .progress-fill { width: 0%; height: 100%; background: #38bdf8; animation: load 4s forwards; }
+                @keyframes load { 0% { width:0% } 100% { width:100% } }
+                .manual-link { margin-top: 25px; font-size: 13px; color: #6366f1; text-decoration: none; opacity: 0.7; transition: 0.3s; }
+                .manual-link:hover { opacity: 1; text-decoration: underline; }
+            </style>
+        </head>
+        <body>
+            <div class="status-container">
+                <div class="loader"></div>
+                <h2>Initializing Workspace</h2>
+                <p>Bridging your ephemeral cluster ingress...</p>
+                <div class="progress-bar"><div class="progress-fill"></div></div>
+                <a href="${url}" class="manual-link">Taking too long? Click to force enter.</a>
+            </div>
+            <script>
+                setTimeout(() => { window.location.href = "${url}"; }, 4500);
+            </script>
         </body>
+        </html>
     `);
-    
-    setTimeout(() => { win.location.href = url; }, 2500);
 }
 
 async function deleteEnv(name) {

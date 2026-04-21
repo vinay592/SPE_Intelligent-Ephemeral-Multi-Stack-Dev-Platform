@@ -151,6 +151,22 @@ def home():
 def list_envs():
     result = {}
 
+    # Batch fetch HPA data to avoid dashboard lag
+    hpa_map = {}
+    try:
+        hpa_out = subprocess.check_output(
+            ["kubectl", "get", "hpa", "-n", NAMESPACE, "--no-headers"],
+            text=True
+        ).strip().split("\n")
+        for line in hpa_out:
+            parts = line.split()
+            if len(parts) >= 6:
+                # Part 0 is sam-flask-xxx-hpa, strip the -hpa
+                hpa_name = parts[0].rsplit("-", 1)[0]
+                hpa_map[hpa_name] = f"{parts[5]}/{parts[4]}"
+    except:
+        pass
+
     for env in envs_col.find():
         user = env["user"]
         env_name = env["env_name"]
@@ -158,28 +174,11 @@ def list_envs():
         if user not in result:
             result[user] = []
 
-        # Fetch current replica counts from Kubernetes
-        pod_count = "1"
-        max_pods = "3"
-        try:
-            pod_out = subprocess.check_output(
-                ["kubectl", "get", "hpa", f"{env_name}-hpa", "-n", NAMESPACE, "-o", "jsonpath={.status.currentReplicas}"],
-                text=True
-            ).strip()
-            max_out = subprocess.check_output(
-                ["kubectl", "get", "hpa", f"{env_name}-hpa", "-n", NAMESPACE, "-o", "jsonpath={.spec.maxReplicas}"],
-                text=True
-            ).strip()
-            pod_count = pod_out or "1"
-            max_pods = max_out or "3"
-        except:
-             pass
-
         result[user].append({
             "name": env_name,
             "stack": env.get("stack", "unknown"),
             "port": env["port"],
-            "pods": f"{pod_count}/{max_pods}",
+            "pods": hpa_map.get(env_name, "1/3"),
             "created_at": env.get("created_at", time.time())
         })
 
@@ -217,7 +216,19 @@ def open_env():
             
         env_node_port = env_record["port"]
 
-        # INSTANT MULTI-PATH ROUTING (CACHED)
+        # Wait for Application to be READY (1/1) - ensures no 'Connection Refused'
+        for _ in range(20):
+            try:
+                ready_status = subprocess.check_output(
+                    ["kubectl", "get", "pod", "-l", f"app={env_name}", "-o", "jsonpath={.status.containerStatuses[0].ready}", "-n", NAMESPACE],
+                    text=True, stderr=subprocess.DEVNULL
+                ).strip()
+                if ready_status == "true":
+                    break
+            except:
+                pass
+            time.sleep(1.5)
+
         url = f"http://{MINIKUBE_IP}:{env_node_port}"
         return jsonify({"url": url})
 
