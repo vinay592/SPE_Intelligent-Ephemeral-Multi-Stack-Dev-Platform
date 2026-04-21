@@ -69,14 +69,17 @@ pipeline {
         stage('Ensure Mongo Ready') {
             steps {
                 sh '''
-                minikube status || minikube start --driver=docker
+                # Run cluster commands securely as your local user to bypass folder lockouts
+                sudo -u vinay-v-bhandare bash -ec "
+                    minikube status || minikube start --driver=docker
 
-                kubectl get namespace dev-platform || kubectl create namespace dev-platform
-                minikube addons list | grep metrics-server | grep enabled || minikube addons enable metrics-server
+                    kubectl get namespace dev-platform || kubectl create namespace dev-platform
+                    minikube addons list | grep metrics-server | grep enabled || minikube addons enable metrics-server
 
-                kubectl apply -f k8s/config.yml
-                kubectl apply -f k8s/secrets.yml
-                kubectl apply -f k8s/mongo.yaml
+                    kubectl apply -f k8s/config.yml
+                    kubectl apply -f k8s/secrets.yml
+                    kubectl apply -f k8s/mongo.yaml
+                "
 
                 for i in {1..30}
                 do
