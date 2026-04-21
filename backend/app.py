@@ -20,6 +20,12 @@ os.environ["HOME"] = "/home/vinay-v-bhandare"
 if "/snap/bin" not in os.environ.get("PATH", ""):
     os.environ["PATH"] += ":/snap/bin"
 
+# Discover Minikube IP once for fast routing
+try:
+    MINIKUBE_IP = subprocess.check_output(["minikube", "ip"], text=True).strip()
+except:
+    MINIKUBE_IP = "127.0.0.1"
+
 # ---------------- CONFIG ----------------
 STACK_CONFIG = {
     "flask": {"image": "vinayvb18/flask-env:latest", "port": 5001},
@@ -147,14 +153,33 @@ def list_envs():
 
     for env in envs_col.find():
         user = env["user"]
+        env_name = env["env_name"]
 
         if user not in result:
             result[user] = []
 
+        # Fetch current replica counts from Kubernetes
+        pod_count = "1"
+        max_pods = "3"
+        try:
+            pod_out = subprocess.check_output(
+                ["kubectl", "get", "hpa", f"{env_name}-hpa", "-n", NAMESPACE, "-o", "jsonpath={.status.currentReplicas}"],
+                text=True
+            ).strip()
+            max_out = subprocess.check_output(
+                ["kubectl", "get", "hpa", f"{env_name}-hpa", "-n", NAMESPACE, "-o", "jsonpath={.spec.maxReplicas}"],
+                text=True
+            ).strip()
+            pod_count = pod_out or "1"
+            max_pods = max_out or "3"
+        except:
+             pass
+
         result[user].append({
-            "name": env["env_name"],
+            "name": env_name,
             "stack": env.get("stack", "unknown"),
             "port": env["port"],
+            "pods": f"{pod_count}/{max_pods}",
             "created_at": env.get("created_at", time.time())
         })
 
@@ -184,56 +209,17 @@ def open_env():
     try:
         data = request.json
         env_name = data.get("env_name")
+        
+        # Get NodePort from DB for immediate redirection
+        env_record = envs_col.find_one({"env_name": env_name})
+        if not env_record:
+            return jsonify({"error": "Environment not found"}), 404
+            
+        env_node_port = env_record["port"]
 
-        # WAIT FOR POD
-        for i in range(15):
-            try:
-                pod_status = subprocess.check_output(
-                    [
-                        "kubectl", "get", "pods", "-n", NAMESPACE,
-                        "-l", f"app={env_name}",
-                        "-o", "jsonpath={.items[0].status.phase}"
-                    ],
-                    text=True, stderr=subprocess.STDOUT
-                ).strip()
-
-                print(f"Pod status: {pod_status}")
-
-                if pod_status == "Running":
-                    break
-            except subprocess.CalledProcessError:
-                print("Pod status check failed, retrying...")
-
-            time.sleep(2)
-        else:
-            return jsonify({"error": "Pod not ready"}), 500
-
-        # WAIT FOR CONTAINER READY
-        for i in range(10):
-            try:
-                ready = subprocess.check_output(
-                    [
-                        "kubectl", "get", "pods", "-n", NAMESPACE,
-                        "-l", f"app={env_name}",
-                        "-o", "jsonpath={.items[0].status.containerStatuses[0].ready}"
-                    ],
-                    text=True, stderr=subprocess.STDOUT
-                ).strip()
-
-                if ready == "true":
-                    break
-            except subprocess.CalledProcessError:
-                print("Container ready check failed, retrying...")
-
-            time.sleep(2)
-
-        # GET SERVICE URL
-        output = subprocess.check_output(
-            ["minikube", "service", f"{env_name}-svc", "-n", NAMESPACE, "--url"],
-            text=True
-        ).strip()
-
-        return jsonify({"url": output})
+        # INSTANT MULTI-PATH ROUTING (CACHED)
+        url = f"http://{MINIKUBE_IP}:{env_node_port}"
+        return jsonify({"url": url})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

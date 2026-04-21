@@ -368,17 +368,20 @@ function getEnvs() {
                 html += `
                 <div class="env-item">
                     <div class="env-info">
-                        <h4>${env.name}</h4>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h4>${env.name}</h4>
+                            <span class="status-badge">Scaling: ${env.pods || '1/3'}</span>
+                        </div>
                         <p>Framework: <b>${env.stack.toUpperCase()}</b></p>
-                        <p>Host Port: <b>${env.port}</b></p>
-                        <div class="status">Live & Monitored</div>
-                        <div class="time">⏳ Expires in ${timeLeft}</div>
+                        <p>Access Port: <code>${env.port}</code></p>
+                        <p class="timer">⏳ Auto-delete in: ${timeLeft}</p>
                     </div>
                     <div class="env-actions">
-                        <button class="open-btn" onclick="openEnv('${env.name}')">Launch App</button>
-                        <button class="delete-btn" id="del-${env.name}" onclick="deleteEnv('${env.name}')">Destroy</button>
+                        <button class="launch-btn" onclick="openEnv('${env.name}')">Launch App</button>
+                        <button class="delete-btn" onclick="deleteEnv('${env.name}')">Dispose</button>
                     </div>
-                </div>`;
+                </div>
+                `;
             });
         }
 
