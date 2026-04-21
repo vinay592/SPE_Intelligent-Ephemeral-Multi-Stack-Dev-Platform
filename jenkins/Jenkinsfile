@@ -96,7 +96,7 @@ pipeline {
 
                 pkill -f "kubectl port-forward" || true
 
-                sudo -u vinay-v-bhandare bash -c "nohup kubectl port-forward svc/mongo-svc 27017:27017 -n dev-platform > mongo.log 2>&1 &"
+                sudo -u vinay-v-bhandare bash -c "nohup kubectl port-forward svc/mongo-svc 27017:27017 -n dev-platform > /tmp/mongo.log 2>&1 &"
                 sleep 5
                 '''
             }
