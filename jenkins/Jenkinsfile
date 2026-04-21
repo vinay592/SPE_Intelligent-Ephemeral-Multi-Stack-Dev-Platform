@@ -71,6 +71,9 @@ pipeline {
                 sh '''
                 minikube status || minikube start --driver=docker
 
+                kubectl get namespace dev-platform || kubectl create namespace dev-platform
+                minikube addons list | grep metrics-server | grep enabled || minikube addons enable metrics-server
+
                 kubectl apply -f k8s/config.yml
                 kubectl apply -f k8s/secrets.yml
                 kubectl apply -f k8s/mongo.yaml

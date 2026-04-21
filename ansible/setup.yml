@@ -34,14 +34,3 @@
           install minikube-linux-amd64 /usr/local/bin/minikube
         fi
 
-    - name: Start Minikube (only if not running)
-      shell: |
-        minikube status | grep -q "Running" || minikube start --driver=docker --memory=2048 --cpus=2
-
-    - name: Enable Metrics Server (only once)
-      shell: |
-        minikube addons list | grep metrics-server | grep enabled || minikube addons enable metrics-server
-
-    - name: Create Namespace (only if not exists)
-      shell: |
-        kubectl get namespace dev-platform || kubectl create namespace dev-platform

@@ -1,0 +1,437 @@
+[33mcommit e10323df9856a06e42493b8ab8721dfe82079b19[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 22 03:28:53 2026 +0530
+
+    changes in ansible.yml
+
+[33mcommit b059d7a12677e52cb928cba57d7749607d96b062[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 22 02:58:22 2026 +0530
+
+    changes in jenkins file
+
+[33mcommit b69339f45c7d1156daf3cfbb7e1d6584ca1818b7[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 22 02:43:00 2026 +0530
+
+    added jenkinsfile changes
+
+[33mcommit 40948e1662dbef226a5633dd77300e20adac2a00[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 22 02:36:59 2026 +0530
+
+    added secrets ,comose ,logstash
+
+[33mcommit aad3c37ca619f321a925e988a717ea1b9bb42dac[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 16 04:09:42 2026 +0530
+
+    -
+
+[33mcommit 34d83719d69cbf73bd3cc5f03f99376f1dfd21c1[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 16 04:07:42 2026 +0530
+
+    -
+
+[33mcommit 2e1994173aed6b48023ae626f10636ad8a019714[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 16 04:06:00 2026 +0530
+
+    -
+
+[33mcommit ebcdb69522f4376db5ba09676291d8e3658a89b2[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 16 04:01:41 2026 +0530
+
+    -
+
+[33mcommit 5e0999e7c3a435750a684535b87e088fed80cf55[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 16 03:24:26 2026 +0530
+
+    ansible change
+
+[33mcommit fb16e553b2c53b02e622d261588cad98db8d4f44[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 16 03:08:26 2026 +0530
+
+    -
+
+[33mcommit 4649f4cae10ed85c42430756509ab62a4256dc37[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 16 01:53:48 2026 +0530
+
+    -
+
+[33mcommit 6805ce74a78a90cbac6283b5b1a617ea879e481c[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 16 01:37:54 2026 +0530
+
+    change in ansible and jenkinsfile
+
+[33mcommit 3f0d17c6968f0b3c9eb387331ce52fc2e567d123[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 15 23:43:02 2026 +0530
+
+    -
+
+[33mcommit 817384fe7186f155e8e710d4b8cb06770bce852c[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 15 23:41:08 2026 +0530
+
+    -
+
+[33mcommit fb5e6dad8a0fcec7fba49d33f23f52942071e5b0[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 15 23:36:34 2026 +0530
+
+    added docker compos remover vpa updated hpa,changed jenkins file
+
+[33mcommit 9cbfd58df29829b358e6b49db1b2ea0903954baa[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 15 20:11:01 2026 +0530
+
+    ordered jenkins file properly
+
+[33mcommit 4310aac325d56c163eb73e1b0a318e3c3f1bbf19[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 15 20:08:30 2026 +0530
+
+    added requirements.txt and gitignore
+
+[33mcommit eea4a53cae871ac435e8f4c7fecbc55b435ec62b[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 15 20:05:46 2026 +0530
+
+    final dev platform setup with ansible and jenkins
+
+[33mcommit 0e7d1684b98cdec6041bd2183c70c74ee762229b[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 15 17:44:22 2026 +0530
+
+    added login and signup,upgraded ui and used mongodb for storage rather than parsing json files
+
+[33mcommit 31f9037eb5b567a9252953fee53f4ee0f13eb071[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 15 01:52:14 2026 +0530
+
+    changed tempelates,added pvc and pv and requests
+
+[33mcommit c9360d31170672e1926a09953727f9e4bb14a4c7[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 9 18:36:16 2026 +0530
+
+    fixed the routing logics and ttl logic- took massive time
+
+[33mcommit d79f3bd8456fde57715140f8b4b2ec99cbff12f3[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 9 02:23:30 2026 +0530
+
+    added envi
+
+[33mcommit 955c2e8b1cedcb9f1aeab57c7d4ce836380909ee[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Thu Apr 9 01:17:19 2026 +0530
+
+    changed app.py
+
+[33mcommit aed450b6b6dfd382129595ab4864197d9aa479af[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 14:27:09 2026 +0530
+
+    added mern env
+
+[33mcommit d5922269e4dff95ac781cc675caeb69164e37e8c[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 13:46:54 2026 +0530
+
+    m
+
+[33mcommit 4c313b4cfdbda6d167f3c9ee16c8646eba962750[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 13:38:52 2026 +0530
+
+    changed jenkins file
+
+[33mcommit b0ca720d133fa345c2630dc3edced51abbd96845[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 13:31:56 2026 +0530
+
+    changed jenkins file
+
+[33mcommit 17bcdd320d248e12e52ae325bbb774a64ac95fa6[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 13:28:17 2026 +0530
+
+    added basic frontend and connected with the json response from backend
+
+[33mcommit 46737aa3e3c6448ede870224a57c7ee8067e1ebc[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 10:09:53 2026 +0530
+
+    added api to list envs,show env and delete env
+
+[33mcommit f7d06e8c3f23e2004a347bae73e589b4432580c3[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 02:37:03 2026 +0530
+
+    fixed dockerhub username
+
+[33mcommit 1f7fd5595f2bcc8bdeec683c78a48986f05b809a[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 02:34:13 2026 +0530
+
+    updated dockerhub image names
+
+[33mcommit 92d053e969fa156d72ee75471262127a16b3a35d[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 02:30:08 2026 +0530
+
+    added dockerhub password
+
+[33mcommit 274d6c66c44ec7a1314efdec049b43028b420575[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 02:22:09 2026 +0530
+
+    Added dockerhub login,build,tag and pushing to dockerhub vinayvb18
+
+[33mcommit 43f06908b44cda805a5eb74743909184547ab242[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 01:18:57 2026 +0530
+
+    long error resolved
+
+[33mcommit 9a9fbd4b1f0ffcd0702a5eca5790e5d1bab7ea76[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 01:04:53 2026 +0530
+
+    changed health check
+
+[33mcommit b95f88469f11cb4366117f01f159cde1a7e5cdb7[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 00:45:34 2026 +0530
+
+    Changes in jenkinsfile
+
+[33mcommit 0b8f1b34959aaf12b5cd014325be4611e74a9589[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Wed Apr 8 00:37:28 2026 +0530
+
+    Changes in jenkinsfile
+
+[33mcommit 902ecc309b381f50e7a999c045143ee65e27cffc[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 20:54:28 2026 +0530
+
+    changed to docker-using-minikube
+
+[33mcommit f9de9783cbbc0b9f621ea9445c0a43cb2bec30b0[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 20:31:28 2026 +0530
+
+    added trivy, changed jenkinsfile again
+
+[33mcommit fa58efc2ae10485f773b6a4dcfe7327a1b636129[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 20:02:44 2026 +0530
+
+    added trivy, changed jenkinsfile
+
+[33mcommit f77e169d41200b75556a9f45d3999e206d7f77ea[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 18:51:37 2026 +0530
+
+    Added trivy and healthcheck in jenkinfile
+
+[33mcommit c4eb2fed1cd7de4e4b25f3285521970430092073[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 18:35:33 2026 +0530
+
+    Added blue green testing
+
+[33mcommit 09d2c15cb467ea03f5e64ca9dd2482cd8d97a476[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 16:35:59 2026 +0530
+
+    added ttl of 1800 sec
+
+[33mcommit 54470a236d2e45b3f0c7ff5c0e954b3b515277f8[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 16:31:22 2026 +0530
+
+    added ttl of 60 sec to test it
+
+[33mcommit 811491d94c33ba54368b6d81bd4618421976cb0e[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 16:11:49 2026 +0530
+
+    delete the oldest if the user adds a new env error removed
+
+[33mcommit d661d775e56ab0fdbef9a31813d0148272e0818e[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 16:09:29 2026 +0530
+
+    delete the oldest if the user adds a new env
+
+[33mcommit b45dacde4373a7d1340beb295bef60c7dfd46ded[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 15:54:51 2026 +0530
+
+    added rejection if greater that 3 env for a user
+
+[33mcommit fb5121ec2b49dc23a28cbf2495163ee85ac60630[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 15:51:53 2026 +0530
+
+    do
+
+[33mcommit 084453eb15a7a75be48877018e64a48065df4082[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 15:48:08 2026 +0530
+
+    added active envirounment per user in memory for now
+
+[33mcommit ba7ea73225d188eaf9ad3d80fb02cdd158dab6c9[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 15:11:52 2026 +0530
+
+    added sample user
+
+[33mcommit 98cd830dc693a966fa9f997bdd7219f62d5eb597[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 14:48:40 2026 +0530
+
+    small jenkins change
+
+[33mcommit eac80529b61146ff4e734704e9cc9f6f334738e6[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 14:45:32 2026 +0530
+
+    added a test user
+
+[33mcommit d1cd07f1a6c71914c7eec646b8c0988b8a24e687[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 12:47:52 2026 +0530
+
+    .
+
+[33mcommit e6bbab9da39b7fdaed50e5d40896b332851e7736[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 12:44:52 2026 +0530
+
+    deleted access info due to jenkins permission issue
+
+[33mcommit fb24a6d94358b071a1921bcb162deab4bd30d253[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 12:39:41 2026 +0530
+
+    added some steps in jenkins file to ensure running
+
+[33mcommit ae92a1e3f2a098dc5d7890bbf820a852df6b415f[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 12:03:08 2026 +0530
+
+    changed jenkins file
+
+[33mcommit 0342b1f47e8e97991375d3373a883064691ee82a[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 12:01:00 2026 +0530
+
+    changed jenkins file
+
+[33mcommit 2e82b1a0650dd1cb551fd1bb908a35b143dc7112[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 11:55:44 2026 +0530
+
+    .
+
+[33mcommit a76fc0331384728913f844f4da5b264403cc3cd1[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 11:37:20 2026 +0530
+
+    webhook test
+
+[33mcommit a9c2a55d283896ff52270d90f0ed2e8fc1ac004d[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 11:31:42 2026 +0530
+
+    webhook test
+
+[33mcommit 4d315d9aa2e306a96b24038f879a4eee5b6cc69d[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 10:11:05 2026 +0530
+
+    webhook test
+
+[33mcommit 394acd24321e7316721014b04d5a8059b53ab6f9[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 10:07:33 2026 +0530
+
+    webhook test
+
+[33mcommit 58b43217c876e24a39396ae14dae93328d33613a[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 09:59:37 2026 +0530
+
+    webhook test
+
+[33mcommit a7c04e0895960b0ce7bb5176a41da19b6a2ee1b5[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 09:20:53 2026 +0530
+
+    fix branch issue
+
+[33mcommit 5e10d364dcf9e2bf050838334185d488d6d9e62a[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 09:02:47 2026 +0530
+
+    jenkinsfile and webhook setup and test
+
+[33mcommit b559cb5cc5699e7544928d2d6c9d52c87bf4dde0[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Tue Apr 7 00:48:58 2026 +0530
+
+    moved docker file with all stack working checks
+
+[33mcommit 30d8fe61f0ef897184ae1368bdf70abf0344ca8b[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Sat Mar 28 16:27:11 2026 +0530
+
+    Added MERN + fixed ML container issue
+
+[33mcommit 14dc59a5ab76f5934b0a7a932805b291dd2488a6[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Sat Mar 28 16:24:02 2026 +0530
+
+    Fixed Java stack structure (removed mixed code issue)
+
+[33mcommit 709fc7183610f1f59e3c8dd4f90c031d580f6307[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Sat Mar 28 15:39:14 2026 +0530
+
+    Fixed backend restart issue for dynamic env API
+
+[33mcommit 74406b40f620ab9067d3aceb4b561fb6738dffdb[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Sat Mar 28 15:13:38 2026 +0530
+
+    Fixed Docker build path and Flask template integration
+
+[33mcommit 9e60200f0fdb712622e1d931466156830906fad2[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Sat Mar 28 15:02:29 2026 +0530
+
+    Dynamic env creation using env_id
+
+[33mcommit 90f746065244001d4ee8ad6d4f160bad8742e38c[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Sat Mar 28 13:02:27 2026 +0530
+
+    Step 5: Added Kubernetes service to expose app
+
+[33mcommit b229d32bdb1e97ab7c3c05d0f2e62ad2d630f3af[m
+Author: Vinay <vinayvb592@gmail.com>
+Date:   Sat Mar 28 12:08:52 2026 +0530
+
+    Initial commit: Backend + Docker setup
