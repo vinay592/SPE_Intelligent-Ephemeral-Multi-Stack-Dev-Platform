@@ -3,9 +3,6 @@
 
   tasks:
 
-    - name: Remove conflicting containerd packages
-      shell: |
-        apt-get remove -y containerd containerd.io || true
 
     - name: Install Docker (safe)
       shell: |
