@@ -176,28 +176,40 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 /* ===== ENV LIST ===== */
 .env-item {
     display: flex; justify-content: space-between; align-items: center;
-    background: rgba(15, 23, 42, 0.5);
-    padding: 20px; border-radius: 16px; margin-top: 15px;
+    background: rgba(15, 23, 42, 0.4);
+    padding: 24px; border-radius: 16px; margin-top: 15px;
     border: 1px solid rgba(255,255,255,0.05);
     transition: 0.3s;
 }
-.env-item:hover { background: rgba(15, 23, 42, 0.8); border-color: rgba(255,255,255,0.1); }
-
-.env-info h4 { margin: 0 0 5px 0; font-size: 18px; color: #f8fafc; }
-.env-info p { margin: 2px 0; font-size: 13px; color: #94a3b8; }
-.env-info .status {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: rgba(16, 185, 129, 0.15); color: #10b981;
-    padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 8px;
+.env-info h4 { margin: 0; font-size: 18px; color: #f1f5f9; letter-spacing: 0.5px; }
+.status-badge {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    margin-left: 15px;
+    white-space: nowrap;
 }
-.env-info .status::before { content: ""; width: 6px; height: 6px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite; }
-.env-info .time { color: #facc15; font-size: 13px; font-weight: 600; margin-top: 5px; }
+.env-info p { margin: 6px 0 0; font-size: 14px; color: #94a3b8; }
+.env-info code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; color: #f472b6; }
+.timer { color: #facc15 !important; font-weight: 500; }
 
-.env-actions { display: flex; gap: 10px; }
-.open-btn { background: #0ea5e9; color: white; padding: 10px 18px; font-size: 13px; }
-.open-btn:hover { background: #0284c7; }
-.delete-btn { background: transparent; color: #ef4444; border: 1px solid #ef4444; padding: 10px 18px; font-size: 13px; }
-.delete-btn:hover:not(:disabled) { background: rgba(239, 68, 68, 0.1); }
+.env-actions { display: flex; gap: 12px; }
+
+.launch-btn { 
+    background: #0ea5e9; color: white; padding: 10px 20px; font-size: 14px;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+.launch-btn:hover { background: #0284c7; transform: translateY(-2px); }
+
+.delete-btn { 
+    background: transparent; color: #94a3b8; border: 1px solid rgba(255,255,255,0.1);
+    padding: 10px 18px; font-size: 14px;
+}
+.delete-btn:hover { background: rgba(239, 68, 68, 0.1); color: var(--danger); border-color: var(--danger); }
 
 /* ===== TOAST NOTIFICATION ===== */
 #toast {
@@ -368,7 +380,7 @@ function getEnvs() {
                 html += `
                 <div class="env-item">
                     <div class="env-info">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap: 15px;">
                             <h4>${env.name}</h4>
                             <span class="status-badge">Scaling: ${env.pods || '1/3'}</span>
                         </div>
@@ -377,8 +389,8 @@ function getEnvs() {
                         <p class="timer">⏳ Auto-delete in: ${timeLeft}</p>
                     </div>
                     <div class="env-actions">
-                        <button class="launch-btn" onclick="openEnv('${env.name}')">Launch App</button>
-                        <button class="delete-btn" onclick="deleteEnv('${env.name}')">Dispose</button>
+                        <button class="launch-btn" id="launch-${env.name}" onclick="openEnv('${env.name}')">Launch App</button>
+                        <button class="delete-btn" id="del-${env.name}" onclick="deleteEnv('${env.name}')">Dispose</button>
                     </div>
                 </div>
                 `;
@@ -392,9 +404,10 @@ function getEnvs() {
 }
 
 function openEnv(name) {
-    const btn = document.querySelector(`.open-btn`);
+    const btn = document.getElementById(`launch-${name}`);
     const originalText = btn.innerText;
     btn.innerText = "Routing...";
+    btn.disabled = true;
     
     fetch(BASE_URL + "/open-env", {
         method: "POST",
@@ -404,9 +417,12 @@ function openEnv(name) {
     .then(res => res.json())
     .then(data => {
         btn.innerText = originalText;
-        showLoadingScreen(data.url);
+        btn.disabled = false;
+        if(data.url) showLoadingScreen(data.url);
+        else showToast("Cluster routing not ready yet.", true);
     }).catch(() => {
         btn.innerText = originalText;
+        btn.disabled = false;
         showToast("Error establishing route to cluster.", true);
     });
 }
