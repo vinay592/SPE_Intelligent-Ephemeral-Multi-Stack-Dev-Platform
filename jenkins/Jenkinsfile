@@ -30,6 +30,7 @@ pipeline {
 
                 # ensure docker running
                 sudo systemctl start docker || true
+                sudo chmod 666 /var/run/docker.sock || true
 
                 # run ansible but don't fail pipeline
                 ansible-playbook ansible/setup.yml || true
