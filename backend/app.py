@@ -24,7 +24,7 @@ STACK_CONFIG = {
 }
 
 logging.basicConfig(
-    filename="app.log",
+    filename="/tmp/app.log",
     level=logging.INFO,
     format="%(asctime)s - %(message)s"
 )
