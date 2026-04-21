@@ -39,7 +39,7 @@
 
     - name: Start Minikube (only if not running)
       shell: |
-        minikube status | grep -q "Running" || minikube start --driver=docker
+        minikube status | grep -q "Running" || minikube start --driver=docker --memory=2048 --cpus=2
 
     - name: Enable Metrics Server (only once)
       shell: |

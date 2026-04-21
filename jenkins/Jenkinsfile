@@ -57,11 +57,21 @@ pipeline {
             }
         }
 
+        stage('Start ELK Monitoring') {
+            steps {
+                sh '''
+                docker-compose up -d
+                '''
+            }
+        }
+
         stage('Ensure Mongo Ready') {
             steps {
                 sh '''
                 minikube status || minikube start --driver=docker
 
+                kubectl apply -f k8s/config.yml
+                kubectl apply -f k8s/secrets.yml
                 kubectl apply -f k8s/mongo.yaml
 
                 for i in {1..30}

@@ -31,10 +31,11 @@ logging.basicConfig(
 
 # ---------------- ELASTICSEARCH ----------------
 es = None
+ELASTICSEARCH_URI = os.getenv("ELASTICSEARCH_URI", "http://127.0.0.1:9200")
 
 for i in range(5):
     try:
-        es = Elasticsearch("http://127.0.0.1:9200")
+        es = Elasticsearch(ELASTICSEARCH_URI)
         es.info()
         print("Elasticsearch connected ✅")
         break
@@ -44,6 +45,16 @@ for i in range(5):
 
 if not es:
     print("Elasticsearch not available ⚠️")
+
+def log_to_es_async(index_name, doc):
+    if es:
+        def task():
+            try:
+                es.index(index=index_name, document=doc)
+            except Exception as e:
+                logging.error(f"Elasticsearch indexing failed: {e}")
+        threading.Thread(target=task, daemon=True).start()
+
 
 NAMESPACE = "dev-platform"
 
@@ -81,6 +92,10 @@ def delete_k8s_resources(name):
         ["kubectl", "delete", "pvc", f"{name}-pvc", "-n", NAMESPACE, "--ignore-not-found"],
         check=False
     )
+    subprocess.run(
+        ["kubectl", "delete", "hpa", f"{name}-hpa", "-n", NAMESPACE, "--ignore-not-found"],
+        check=False
+    )
 
 
 # ---------------- TTL CLEANUP ----------------
@@ -92,21 +107,20 @@ def cleanup_expired_envs():
         time.sleep(60)
         try:
             now = time.time()
+            cutoff_time = now - TTL
 
-            for env in envs_col.find():
-                age = now - env.get("created_at", now)
+            expired_envs = envs_col.find({"created_at": {"$lte": cutoff_time}})
 
-                if age >= TTL:
-                    delete_k8s_resources(env["env_name"])
-                    envs_col.delete_one({"env_name": env["env_name"]})
+            for env in expired_envs:
+                delete_k8s_resources(env["env_name"])
+                envs_col.delete_one({"env_name": env["env_name"]})
 
-                    logging.info(f"TTL DELETE: {env['env_name']}")
+                logging.info(f"TTL DELETE: {env['env_name']}")
 
-                    if es:
-                        es.index(index="app-logs", document={
-                            "event": "ttl_delete",
-                            "env": env["env_name"]
-                        })
+                log_to_es_async(index_name="app-logs", doc={
+                    "event": "ttl_delete",
+                    "env": env["env_name"]
+                })
 
         except Exception as e:
             print("TTL Error:", e)
@@ -147,11 +161,10 @@ def delete_env():
 
     logging.info(f"ENV DELETED: {env_name}")
 
-    if es:
-        es.index(index="app-logs", document={
-            "event": "delete_env",
-            "env": env_name
-        })
+    log_to_es_async(index_name="app-logs", doc={
+        "event": "delete_env",
+        "env": env_name
+    })
 
     return jsonify({"status": "deleted"})
 
@@ -164,19 +177,22 @@ def open_env():
 
         # WAIT FOR POD
         for i in range(15):
-            pod_status = subprocess.check_output(
-                [
-                    "kubectl", "get", "pods", "-n", NAMESPACE,
-                    "-l", f"app={env_name}",
-                    "-o", "jsonpath={.items[0].status.phase}"
-                ],
-                text=True
-            ).strip()
+            try:
+                pod_status = subprocess.check_output(
+                    [
+                        "kubectl", "get", "pods", "-n", NAMESPACE,
+                        "-l", f"app={env_name}",
+                        "-o", "jsonpath={.items[0].status.phase}"
+                    ],
+                    text=True, stderr=subprocess.STDOUT
+                ).strip()
 
-            print(f"Pod status: {pod_status}")
+                print(f"Pod status: {pod_status}")
 
-            if pod_status == "Running":
-                break
+                if pod_status == "Running":
+                    break
+            except subprocess.CalledProcessError:
+                print("Pod status check failed, retrying...")
 
             time.sleep(2)
         else:
@@ -184,17 +200,20 @@ def open_env():
 
         # WAIT FOR CONTAINER READY
         for i in range(10):
-            ready = subprocess.check_output(
-                [
-                    "kubectl", "get", "pods", "-n", NAMESPACE,
-                    "-l", f"app={env_name}",
-                    "-o", "jsonpath={.items[0].status.containerStatuses[0].ready}"
-                ],
-                text=True
-            ).strip()
+            try:
+                ready = subprocess.check_output(
+                    [
+                        "kubectl", "get", "pods", "-n", NAMESPACE,
+                        "-l", f"app={env_name}",
+                        "-o", "jsonpath={.items[0].status.containerStatuses[0].ready}"
+                    ],
+                    text=True, stderr=subprocess.STDOUT
+                ).strip()
 
-            if ready == "true":
-                break
+                if ready == "true":
+                    break
+            except subprocess.CalledProcessError:
+                print("Container ready check failed, retrying...")
 
             time.sleep(2)
 
@@ -229,11 +248,10 @@ def signup():
 
     logging.info(f"SIGNUP SUCCESS: {username}")
 
-    if es:
-        es.index(index="app-logs", document={
-            "event": "signup",
-            "user": username
-        })
+    log_to_es_async(index_name="app-logs", doc={
+        "event": "signup",
+        "user": username
+    })
 
     return jsonify({"status": True})
 
@@ -254,11 +272,10 @@ def login():
 
     logging.info(f"LOGIN SUCCESS: {username}")
 
-    if es:
-        es.index(index="app-logs", document={
-            "event": "login",
-            "user": username
-        })
+    log_to_es_async(index_name="app-logs", doc={
+        "event": "login",
+        "user": username
+    })
 
     return jsonify({"status": True})
 
@@ -323,17 +340,25 @@ def create_env():
             }
         )
 
+        hpa_yaml = load_yaml_template(
+            os.path.join(k8s_path, "hpa.yaml"),
+            {"ENV_NAME": env_name}
+        )
+
         pvc_file = f"/tmp/pvc-{env_id}.yaml"
         dep_file = f"/tmp/deploy-{env_id}.yaml"
         svc_file = f"/tmp/service-{env_id}.yaml"
+        hpa_file = f"/tmp/hpa-{env_id}.yaml"
 
         open(pvc_file, "w").write(pvc_yaml)
         open(dep_file, "w").write(deployment_yaml)
         open(svc_file, "w").write(service_yaml)
+        open(hpa_file, "w").write(hpa_yaml)
 
         subprocess.run(["kubectl", "apply", "-f", pvc_file], check=True)
         subprocess.run(["kubectl", "apply", "-f", dep_file], check=True)
         subprocess.run(["kubectl", "apply", "-f", svc_file], check=True)
+        subprocess.run(["kubectl", "apply", "-f", hpa_file], check=True)
 
         envs_col.insert_one({
             "user": user,
@@ -344,13 +369,12 @@ def create_env():
 
         logging.info(f"ENV CREATED: {env_name} by {user}")
 
-        if es:
-            es.index(index="app-logs", document={
-                "event": "create_env",
-                "user": user,
-                "env": env_name,
-                "port": node_port
-            })
+        log_to_es_async(index_name="app-logs", doc={
+            "event": "create_env",
+            "user": user,
+            "env": env_name,
+            "port": node_port
+        })
 
         return jsonify({
             "env_name": env_name,
