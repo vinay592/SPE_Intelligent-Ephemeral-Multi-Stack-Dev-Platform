@@ -17,10 +17,10 @@ CORS(app)
 
 # ---------------- CONFIG ----------------
 STACK_CONFIG = {
-    "flask": {"image": "vinayvb18/flask-env:v5", "port": 5001},
-    "mern": {"image": "vinayvb18/mern-env:v5", "port": 3000},
-    "java": {"image": "vinayvb18/java-env:v3", "port": 8082},
-    "ml": {"image": "vinayvb18/ml-env:v6", "port": 8888}
+    "flask": {"image": "vinayvb18/flask-env:latest", "port": 5001},
+    "mern": {"image": "vinayvb18/mern-env:latest", "port": 3000},
+    "java": {"image": "vinayvb18/java-env:latest", "port": 8082},
+    "ml": {"image": "vinayvb18/ml-env:latest", "port": 8888}
 }
 
 logging.basicConfig(

@@ -21,7 +21,7 @@ pipeline {
                     url: 'https://github.com/vinay592/SPE_Intelligent-Ephemeral-Multi-Stack-Dev-Platform.git'
             }
         }
-
+ 
         // ✅ ANSIBLE (SAFE VERSION)
         stage('Setup Infra (Ansible)') {
             steps {
@@ -145,7 +145,7 @@ pipeline {
                 sh '''
                 curl -X POST http://localhost:5001/create-env \
                 -H "Content-Type: application/json" \
-                -d '{"stack":"flask","user":"test"}'
+                -d "{\\"stack\\":\\"flask\\",\\"user\\":\\"test\\",\\"image\\":\\"${IMAGE_NAME}:${BUILD_NUMBER}\\"}"
                 '''
             }
         }
