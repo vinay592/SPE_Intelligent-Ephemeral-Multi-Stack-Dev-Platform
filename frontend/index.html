@@ -1,23 +1,66 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Dev Platform</title>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intelligent Ephemeral Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* ===== GLOBAL DEFAULTS ===== */
+:root {
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    --success: #10b981;
+    --danger: #ef4444;
+    --bg-gradient-1: #0f172a;
+    --bg-gradient-2: #1e1b4b;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
 
-/* ===== GLOBAL ===== */
 body {
-    font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
+    font-family: 'Inter', sans-serif;
+    color: #e2e8f0;
     margin: 0;
-    color: white;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--bg-gradient-1), var(--bg-gradient-2));
+    background-attachment: fixed;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Dynamic Animated Background Blobs */
+body::before, body::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    z-index: -1;
+    opacity: 0.4;
+    animation: pulse 10s infinite alternate;
+}
+body::before {
+    width: 400px; height: 400px;
+    background: #4338ca;
+    top: -100px; left: -100px;
+}
+body::after {
+    width: 500px; height: 500px;
+    background: #be185d;
+    bottom: -150px; right: -150px;
+    animation-direction: alternate-reverse;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.2); }
 }
 
 /* ===== CONTAINER ===== */
 .container {
-    width: 55%;
-    margin: auto;
-    margin-top: 60px;
+    width: 60%;
+    max-width: 900px;
+    margin: 60px auto;
 }
 
 /* ===== TOP BAR ===== */
@@ -25,157 +68,180 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
+    margin-bottom: 40px;
 }
 
-h2 {
+.top-bar h2 {
     margin: 0;
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(90deg, #818cf8, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
-/* ===== CARD ===== */
-.card {
-    background: rgba(255,255,255,0.06);
-    padding: 25px;
-    border-radius: 16px;
-    margin-bottom: 25px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-    backdrop-filter: blur(12px);
-}
-
-/* ===== FORM ===== */
-.section {
-    margin-bottom: 15px;
-}
-
-.slider-row {
-    margin: 20px 0;
-}
-
-.slider-header {
+.user-badge {
     display: flex;
-    justify-content: space-between;
-    font-size: 14px;
-    margin-bottom: 5px;
-    opacity: 0.9;
+    align-items: center;
+    gap: 15px;
+    background: var(--glass-bg);
+    padding: 8px 20px;
+    border-radius: 30px;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
 }
+
+/* ===== GLASS CARD ===== */
+.card {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    backdrop-filter: blur(15px);
+    transition: transform 0.3s ease;
+}
+.card:hover { transform: translateY(-3px); }
+
+/* ===== FORM ELEMENTS ===== */
+H3 { margin-top: 0; margin-bottom: 25px; font-weight: 600; font-size: 20px; color: #f8fafc; }
+
+select {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid var(--glass-border);
+    color: white;
+    font-size: 16px;
+    margin-bottom: 25px;
+    outline: none;
+    cursor: pointer;
+    transition: 0.2s;
+    font-family: 'Inter', sans-serif;
+}
+select:focus { border-color: var(--primary); }
+
+.slider-row { margin: 25px 0; }
+.slider-header {
+    display: flex; justify-content: space-between;
+    font-size: 14px; margin-bottom: 10px; font-weight: 500; color: #cbd5e1;
+}
+.slider-header span:last-child { color: #38bdf8; font-weight: 600; }
 
 input[type="range"] {
     width: 100%;
+    accent-color: #38bdf8;
+    height: 6px;
+    border-radius: 10px;
+    outline: none;
+    cursor: pointer;
 }
 
 /* ===== BUTTONS ===== */
-.btn-group {
-    display: flex;
-    gap: 12px;
-    margin-top: 10px;
-}
+.btn-group { display: flex; gap: 15px; margin-top: 30px; }
 
 button {
-    border: none;
-    border-radius: 8px;
-    padding: 10px 15px;
-    cursor: pointer;
-    font-weight: 600;
+    border: none; border-radius: 12px; padding: 14px 24px;
+    cursor: pointer; font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif;
+    transition: all 0.3s ease;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
 }
+button:active { transform: scale(0.96); }
+button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 .create-btn {
-    background: #00e676;
-    color: black;
+    background: var(--primary); color: white; flex: 1;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
 }
+.create-btn:hover:not(:disabled) { background: var(--primary-hover); box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6); }
 
-.refresh-btn {
-    background: #2979ff;
-    color: white;
-}
+.refresh-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+.refresh-btn:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
 
-.logout-btn {
-    background: #ff5252;
-    color: white;
+.logout-btn { background: transparent; color: var(--danger); font-size: 14px; padding: 6px 12px; border: 1px solid var(--danger); }
+.logout-btn:hover { background: rgba(239, 68, 68, 0.1); }
+
+/* Loader Spinner */
+.spinner {
+    width: 18px; height: 18px;
+    border: 3px solid rgba(255,255,255,0.3); border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s infinite linear;
+    display: none;
 }
+@keyframes spin { 100% { transform: rotate(360deg); } }
 
 /* ===== ENV LIST ===== */
 .env-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(255,255,255,0.05);
-    padding: 18px;
-    border-radius: 12px;
-    margin-top: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(15, 23, 42, 0.5);
+    padding: 20px; border-radius: 16px; margin-top: 15px;
+    border: 1px solid rgba(255,255,255,0.05);
     transition: 0.3s;
 }
+.env-item:hover { background: rgba(15, 23, 42, 0.8); border-color: rgba(255,255,255,0.1); }
 
-.env-item:hover {
-    background: rgba(255,255,255,0.1);
+.env-info h4 { margin: 0 0 5px 0; font-size: 18px; color: #f8fafc; }
+.env-info p { margin: 2px 0; font-size: 13px; color: #94a3b8; }
+.env-info .status {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(16, 185, 129, 0.15); color: #10b981;
+    padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 8px;
 }
+.env-info .status::before { content: ""; width: 6px; height: 6px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite; }
+.env-info .time { color: #facc15; font-size: 13px; font-weight: 600; margin-top: 5px; }
 
-.env-info {
-    font-size: 14px;
-}
+.env-actions { display: flex; gap: 10px; }
+.open-btn { background: #0ea5e9; color: white; padding: 10px 18px; font-size: 13px; }
+.open-btn:hover { background: #0284c7; }
+.delete-btn { background: transparent; color: #ef4444; border: 1px solid #ef4444; padding: 10px 18px; font-size: 13px; }
+.delete-btn:hover:not(:disabled) { background: rgba(239, 68, 68, 0.1); }
 
-/* ===== STATUS ===== */
-.status {
-    display: inline-block;
-    background: rgba(0,230,118,0.2);
-    color: #00e676;
-    padding: 4px 8px;
-    border-radius: 6px;
-    margin-top: 4px;
-    font-weight: bold;
+/* ===== TOAST NOTIFICATION ===== */
+#toast {
+    position: fixed; top: 30px; right: 30px;
+    background: #1e293b; color: white; padding: 15px 25px;
+    border-radius: 12px; border-left: 4px solid var(--success);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transform: translateX(150%); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 1000; font-weight: 500; font-size: 14px;
 }
-
-/* ===== TIMER ===== */
-.time {
-    color: #ffd54f;
-    margin-top: 5px;
-}
-
-/* ===== ACTION BUTTONS ===== */
-.env-actions button {
-    margin-left: 10px;
-}
-
-.open-btn {
-    background: #00bcd4;
-    color: white;
-}
-
-.delete-btn {
-    background: #ff5252;
-    color: white;
-}
+#toast.show { transform: translateX(0); }
+#toast.error { border-left-color: var(--danger); }
 
 </style>
 </head>
-
 <body>
 
-<div class="container">
+<!-- Toast -->
+<div id="toast">✅ Environment Created Successfully</div>
 
+<div class="container">
     <div class="top-bar">
-        <h2>🚀 Dev Platform</h2>
-        <div>
-            👋 <b id="user"></b>
+        <h2>🚀 Launchpad</h2>
+        <div class="user-badge">
+            <span style="font-size: 14px;">Logged in as: <b id="user" style="color: #38bdf8;"></b></span>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </div>
 
-    <!-- CREATE -->
+    <!-- CREATE CARD -->
     <div class="card">
-        <h3>Create Environment</h3>
+        <h3>Provision New Stack</h3>
 
-        <div class="section">
-            <select id="stack">
-                <option value="flask">Flask</option>
-                <option value="mern">MERN</option>
-                <option value="java">Java</option>
-                <option value="ml">ML</option>
-            </select>
-        </div>
+        <select id="stack">
+            <option value="" disabled selected>Select Framework...</option>
+            <option value="flask">Python Flask Engine</option>
+            <option value="mern">MERN Fullstack</option>
+            <option value="java">Java Spring Boot</option>
+            <option value="ml">Machine Learning Jupyter</option>
+        </select>
 
         <div class="slider-row">
             <div class="slider-header">
-                <span>CPU</span>
+                <span>CPU Allocation</span>
                 <span id="cpuVal">250m</span>
             </div>
             <input type="range" id="cpu" min="100" max="500" step="50" value="250">
@@ -183,26 +249,28 @@ button {
 
         <div class="slider-row">
             <div class="slider-header">
-                <span>Memory</span>
+                <span>Memory Allocation</span>
                 <span id="memVal">256Mi</span>
             </div>
             <input type="range" id="memory" min="128" max="512" step="64" value="256">
         </div>
 
         <div class="btn-group">
-            <button class="create-btn" onclick="createEnv()">Create</button>
-            <button class="refresh-btn" onclick="getEnvs()">Refresh</button>
+            <button class="create-btn" id="createBtn" onclick="createEnv()">
+                <div class="spinner" id="createSpinner"></div>
+                <span id="createTxt">Deploy Environment</span>
+            </button>
+            <button class="refresh-btn" onclick="getEnvs()">
+                <span>Sync</span>
+            </button>
         </div>
-
-        <p id="status"></p>
     </div>
 
-    <!-- ENVS -->
+    <!-- ENVS CARD -->
     <div class="card">
-        <h3>Active Environments</h3>
-        <div id="output">No environments</div>
+        <h3>Active Ephemeral Workspaces</h3>
+        <div id="output" style="text-align: center; color: #64748b; padding: 20px 0;">Loading clusters...</div>
     </div>
-
 </div>
 
 <script>
@@ -213,36 +281,66 @@ if (!user) window.location.href = "login.html";
 document.getElementById("user").innerText = user;
 
 // sliders
-cpu.oninput = () => cpuVal.innerText = cpu.value + "m";
-memory.oninput = () => memVal.innerText = memory.value + "Mi";
+const cpu = document.getElementById("cpu");
+const memory = document.getElementById("memory");
+cpu.oninput = () => document.getElementById("cpuVal").innerText = cpu.value + "m";
+memory.oninput = () => document.getElementById("memVal").innerText = memory.value + "Mi";
 
 function logout() {
     localStorage.removeItem("user");
     window.location.href = "login.html";
 }
 
-function createEnv() {
-    status.innerText = "⚡ Creating...";
+function showToast(msg, isError = false) {
+    const toast = document.getElementById("toast");
+    toast.innerText = msg;
+    toast.className = isError ? "show error" : "show";
+    setTimeout(() => { toast.classList.remove("show"); }, 4000);
+}
 
-    fetch(BASE_URL + "/create-env", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            stack: stack.value,
-            user: user,
-            cpu: cpu.value + "m",
-            memory: memory.value + "Mi"
-        })
-    })
-    .then(res => res.json())
-    .then(() => {
-        status.innerText = "✅ Created!";
-        getEnvs();
-    });
+async function createEnv() {
+    const stackVal = document.getElementById("stack").value;
+    if (!stackVal) return showToast("❌ Please select a stack framework first!", true);
+
+    const btn = document.getElementById("createBtn");
+    const txt = document.getElementById("createTxt");
+    const spinner = document.getElementById("createSpinner");
+
+    btn.disabled = true;
+    txt.innerText = "Provisioning Container...";
+    spinner.style.display = "block";
+
+    try {
+        const res = await fetch(BASE_URL + "/create-env", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                stack: stackVal,
+                user: user,
+                cpu: cpu.value + "m",
+                memory: memory.value + "Mi"
+            })
+        });
+
+        const data = await res.json();
+        
+        if (res.ok) {
+            showToast("✅ Environment cluster deployed successfully!");
+            getEnvs();
+        } else {
+            showToast(`❌ Error: ${data.error || data.message || "Failed to deploy"}`, true);
+        }
+    } catch (err) {
+        showToast("🔥 Critical Error: Backend unrachable. Is app.py running?", true);
+    } finally {
+        btn.disabled = false;
+        txt.innerText = "Deploy Environment";
+        spinner.style.display = "none";
+    }
 }
 
 function getTimeLeft(createdAt) {
-    const ttl = 1800;
+    const ttl = 1800; // 30 minutes
     const now = Math.floor(Date.now() / 1000);
     const diff = ttl - (now - createdAt);
 
@@ -250,7 +348,6 @@ function getTimeLeft(createdAt) {
 
     const mins = Math.floor(diff / 60);
     const secs = Math.floor(diff % 60);
-
     return `${mins}m ${secs}s`;
 }
 
@@ -258,68 +355,90 @@ function getEnvs() {
     fetch(BASE_URL + "/envs")
     .then(res => res.json())
     .then(data => {
+        const output = document.getElementById("output");
         let html = "";
 
         if (!data[user] || data[user].length === 0) {
-            html = "No environments";
+            html = "<div style='text-align: center; color: #64748b; padding: 20px 0;'>No active environments detected.</br><small>Provision a new stack above to begin.</small></div>";
         } else {
             data[user].forEach(env => {
                 const timeLeft = getTimeLeft(env.created_at);
-                if (!timeLeft) return;
+                if (!timeLeft) return; // Expired
 
                 html += `
                 <div class="env-item">
                     <div class="env-info">
-                        <b>${env.name}</b><br>
-                        Port: ${env.port}<br>
-                        <span class="status">Running</span><br>
-                        <div class="time">⏳ ${timeLeft}</div>
+                        <h4>${env.name}</h4>
+                        <p>Framework: <b>${env.stack.toUpperCase()}</b></p>
+                        <p>Host Port: <b>${env.port}</b></p>
+                        <div class="status">Live & Monitored</div>
+                        <div class="time">⏳ Expires in ${timeLeft}</div>
                     </div>
                     <div class="env-actions">
-                        <button class="open-btn" onclick="openEnv('${env.name}')">Open</button>
-                        <button class="delete-btn" onclick="deleteEnv('${env.name}')">Delete</button>
+                        <button class="open-btn" onclick="openEnv('${env.name}')">Launch App</button>
+                        <button class="delete-btn" id="del-${env.name}" onclick="deleteEnv('${env.name}')">Destroy</button>
                     </div>
                 </div>`;
             });
         }
 
         output.innerHTML = html;
+    }).catch(err => {
+        document.getElementById("output").innerHTML = "<div style='color: #ef4444;text-align:center;'>Cannot connect to K8s Backend!</div>";
     });
 }
 
 function openEnv(name) {
+    const btn = document.querySelector(`.open-btn`);
+    const originalText = btn.innerText;
+    btn.innerText = "Routing...";
+    
     fetch(BASE_URL + "/open-env", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ env_name: name })
     })
     .then(res => res.json())
-    .then(data => showLoadingScreen(data.url));
+    .then(data => {
+        btn.innerText = originalText;
+        showLoadingScreen(data.url);
+    }).catch(() => {
+        btn.innerText = originalText;
+        showToast("Error establishing route to cluster.", true);
+    });
 }
 
 function showLoadingScreen(url) {
     const win = window.open("", "_blank");
-
     win.document.write(`
-        <body style="background:#0f172a;color:white;display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;">
-            <h2>🚀 Starting environment...</h2>
+        <body style="background:#0f172a;color:white;display:flex;justify-content:center;align-items:center;height:100vh;flex-direction:column;font-family:sans-serif;">
+            <div style="width:50px;height:50px;border:4px solid rgba(255,255,255,0.2);border-top-color:#38bdf8;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:20px;"></div>
+            <h2>🚀 Routing to Ephemeral Cluster...</h2>
+            <p style="color:#94a3b8;">Establishing secure K8s ingress connection</p>
+            <style>@keyframes spin{100%{transform:rotate(360deg)}}</style>
         </body>
     `);
-
-    setTimeout(() => {
-        win.location.href = url;
-    }, 3000);
+    
+    setTimeout(() => { win.location.href = url; }, 2500);
 }
 
-function deleteEnv(name) {
-    fetch(BASE_URL + "/delete-env", {
+async function deleteEnv(name) {
+    const btn = document.getElementById(`del-${name}`);
+    btn.innerText = "Destroying...";
+    btn.disabled = true;
+    
+    await fetch(BASE_URL + "/delete-env", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ env_name: name })
-    }).then(getEnvs);
+    });
+    
+    showToast(`🧨 Cluster ${name} destroyed!`);
+    getEnvs();
 }
 
-setInterval(getEnvs, 1000);
+// Auto sync
+setInterval(getEnvs, 2000);
 getEnvs();
 </script>
 

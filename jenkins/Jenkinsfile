@@ -109,8 +109,8 @@ pipeline {
                     export JENKINS_NODE_COOKIE=dontKillMe
                     pkill -f app.py || true
                     
-                    # start backend in background
-                    nohup venv/bin/python app.py > ../backend.log 2>&1 &
+                    # start backend in background as the local user so it has kubectl rights
+                    sudo -E -u vinay-v-bhandare bash -c "nohup /var/lib/jenkins/workspace/spe_project_pipeline/backend/venv/bin/python /var/lib/jenkins/workspace/spe_project_pipeline/backend/app.py > /tmp/backend.log 2>&1 &"
                     
                     # Wait for backend to fully start and bind to port
                     sleep 5
