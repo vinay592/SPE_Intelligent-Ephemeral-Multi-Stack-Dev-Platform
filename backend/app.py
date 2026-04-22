@@ -228,6 +228,28 @@ def delete_env():
     return jsonify({"status": "deleted"})
 
 
+@app.route('/stress-env', methods=['POST'])
+def stress_env():
+    """Innovation: Trigger CPU load to demonstrate HPA scaling"""
+    try:
+        data = request.get_json()
+        env_name = data["env_name"]
+        
+        # Run a CPU intensive task in the pod for 60 seconds
+        stress_cmd = ["kubectl", "exec", "-n", NAMESPACE, env_name, "--", "bash", "-c", "timeout 60s cat /dev/urandom | gzip -9 > /dev/null &"]
+        subprocess.run(stress_cmd, check=True)
+        
+        logging.info(f"STRESS TEST TRIGGERED: {env_name}")
+        log_to_es_async(index_name="app-logs", doc={
+            "event": "stress_test",
+            "env": env_name
+        })
+        
+        return jsonify({"status": "stressing", "message": "CPU load triggered for 60s"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/open-env', methods=['POST'])
 def open_env():
     try:

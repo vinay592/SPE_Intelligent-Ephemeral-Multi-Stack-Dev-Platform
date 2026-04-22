@@ -438,6 +438,7 @@ function getEnvs() {
                     </div>
                     <div class="env-actions">
                         <button class="launch-btn" id="launch-${env.name}" onclick="openEnv('${env.name}')" ${launchDisabled}>Launch App</button>
+                        <button class="launch-btn" style="background:#f59e0b;" id="stress-${env.name}" onclick="stressEnv('${env.name}')" ${launchDisabled}>Stress Test</button>
                         <button class="delete-btn" id="del-${env.name}" onclick="deleteEnv('${env.name}')">Dispose</button>
                     </div>
                 </div>
@@ -529,6 +530,34 @@ function showLoadingScreen(url) {
         </body>
         </html>
     `);
+}
+
+async function stressEnv(name) {
+    const btn = document.getElementById(`stress-${name}`);
+    const originalText = btn.innerText;
+    btn.innerText = "Stressing...";
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(BASE_URL + "/stress-env", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ env_name: name })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast("🔥 Stress test triggered! HPA scaling will begin shortly.");
+        } else {
+            showToast(`❌ Stress test failed: ${data.error || "Unknown error"}`, true);
+        }
+    } catch (err) {
+        showToast("🔥 Cannot reach backend for stress test.", true);
+    } finally {
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }, 5000);
+    }
 }
 
 async function deleteEnv(name) {

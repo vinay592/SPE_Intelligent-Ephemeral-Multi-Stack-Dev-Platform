@@ -1,36 +1,6 @@
 - hosts: localhost
   become: yes
-
-  tasks:
-
-
-    - name: Install Docker (safe)
-      shell: |
-        if ! command -v docker > /dev/null
-        then
-          apt-get update
-          apt-get install -y docker.io
-        fi
-
-    - name: Start Docker
-      service:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: Install kubectl (if not exists)
-      shell: |
-        if ! command -v kubectl > /dev/null
-        then
-          curl -LO "https://dl.k8s.io/release/stable/bin/linux/amd64/kubectl"
-          install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-        fi
-
-    - name: Install Minikube (if not exists)
-      shell: |
-        if ! command -v minikube > /dev/null
-        then
-          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-          install minikube-linux-amd64 /usr/local/bin/minikube
-        fi
-
+  roles:
+    - common
+    - docker
+    - minikube
