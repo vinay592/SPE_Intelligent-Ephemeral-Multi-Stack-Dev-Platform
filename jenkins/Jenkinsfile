@@ -154,6 +154,19 @@ pipeline {
             }
         }
 
+        stage('Security Scan (Trivy)') {
+            steps {
+                sh '''
+                echo "--- Initiating Security Audit (Trivy) ---"
+                for stack in flask java mern ml; do
+                    echo "Scanning Image: vinayvb18/${stack}-env:latest"
+                    trivy image --severity HIGH,CRITICAL --no-progress "vinayvb18/${stack}-env:latest" || true
+                done
+                '''
+            }
+        }
+
+
         stage('Deploy') {
             steps {
                 sh '''
