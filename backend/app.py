@@ -237,13 +237,16 @@ def stress_env():
         
         # Get actual pod name (kubectl exec requires a pod, not a deployment)
         pod_cmd = ["kubectl", "get", "pod", "-l", f"app={env_name}", "-o", "name", "-n", NAMESPACE]
-        pod_name = subprocess.check_output(pod_cmd, text=True).strip()
+        pod_output = subprocess.check_output(pod_cmd, text=True).strip()
         
-        if not pod_name:
+        if not pod_output:
             return jsonify({"error": "No running pod found for this environment"}), 404
 
-        # Run a CPU intensive task in the pod for 60 seconds
-        stress_cmd = ["kubectl", "exec", "-n", NAMESPACE, pod_name, "--", "bash", "-c", "timeout 60s cat /dev/urandom | gzip -9 > /dev/null &"]
+        # Pick the first pod if multiple are returned (e.g. during scaling or restarts)
+        pod_name = pod_output.split('\n')[0]
+
+        # Run a CPU intensive task in the pod for 60 seconds (using 'sh' for compatibility)
+        stress_cmd = ["kubectl", "exec", "-n", NAMESPACE, pod_name, "--", "sh", "-c", "timeout 60s cat /dev/urandom | gzip -9 > /dev/null &"]
         subprocess.run(stress_cmd, check=True)
         
         logging.info(f"STRESS TEST TRIGGERED: {env_name} on {pod_name}")
