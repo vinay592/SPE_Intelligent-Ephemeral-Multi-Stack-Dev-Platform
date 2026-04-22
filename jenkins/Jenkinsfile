@@ -142,7 +142,7 @@ pipeline {
         stage('Build & Push Image') {
             steps {
                 sh '''
-                echo "Viny_vb18" | docker login -u vinayvb18 --password-stdin
+                echo "Vinay_vb18" | docker login -u vinayvb18 --password-stdin
                 docker build -t ${IMAGE_NAME}:latest templates/${STACK}
                 docker push ${IMAGE_NAME}:latest
                 '''
