@@ -385,7 +385,19 @@ function getTimeLeft(createdAt) {
 
     const mins = Math.floor(diff / 60);
     const secs = Math.floor(diff % 60);
-    return `${mins}m ${secs}s`;
+    return `${mins}m ${secs.toString().padStart(2, '0')}s`;
+}
+
+// Global store for environments to allow smooth timer updates
+let currentEnvs = [];
+
+function renderTimers() {
+    currentEnvs.forEach(env => {
+        const timerEl = document.getElementById(`timer-${env.name}`);
+        if (timerEl) {
+            timerEl.innerText = `⏳ Auto-delete in: ${getTimeLeft(env.created_at)}`;
+        }
+    });
 }
 
 function getEnvs() {
@@ -396,9 +408,11 @@ function getEnvs() {
         let html = "";
 
         if (!data[user] || data[user].length === 0) {
+            currentEnvs = [];
             html = "<div style='text-align: center; color: #64748b; padding: 20px 0;'>No active environments detected.<br><small>Provision a new stack above to begin.</small></div>";
         } else {
-            data[user].forEach(env => {
+            currentEnvs = data[user];
+            currentEnvs.forEach(env => {
                 const timeLeft = getTimeLeft(env.created_at);
                 if (!timeLeft) return;
 
@@ -433,7 +447,7 @@ function getEnvs() {
                         </div>
                         <p>Framework: <b>${env.stack.toUpperCase()}</b></p>
                         <p>Access Port: <code>${env.port}</code></p>
-                        <p class="timer">⏳ Auto-delete in: ${timeLeft}</p>
+                        <p class="timer" id="timer-${env.name}">⏳ Auto-delete in: ${timeLeft}</p>
                         ${errorHtml}
                     </div>
                     <div class="env-actions">
@@ -575,9 +589,12 @@ async function deleteEnv(name) {
     getEnvs();
 }
 
-// Auto sync every 5s (was 2s — reduces backend hammering)
+// Auto sync every 5s (reduces backend hammering)
 setInterval(getEnvs, 5000);
 getEnvs();
+
+// Smooth 1s timer updates for better UX
+setInterval(renderTimers, 1000);
 </script>
 
 </body>
