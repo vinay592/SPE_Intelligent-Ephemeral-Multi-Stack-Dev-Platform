@@ -160,12 +160,12 @@ def list_envs():
         ).strip().split("\n")
         for line in hpa_out:
             parts = line.split()
-            if len(parts) >= 6:
-                # Part 0 is sam-flask-xxx-hpa, strip the -hpa
+            if len(parts) >= 7:
+                # 0:name, 5:max, 6:replicas
                 hpa_name = parts[0].rsplit("-", 1)[0]
-                hpa_map[hpa_name] = f"{parts[5]}/{parts[4]}"
-    except:
-        pass
+                hpa_map[hpa_name] = f"{parts[6]}/{parts[5]}"
+    except Exception as e:
+        logging.error(f"HPA Sync Error: {e}")
 
     for env in envs_col.find():
         user = env["user"]
@@ -216,19 +216,7 @@ def open_env():
             
         env_node_port = env_record["port"]
 
-        # Wait for Application to be READY (1/1) - ensures no 'Connection Refused'
-        for _ in range(20):
-            try:
-                ready_status = subprocess.check_output(
-                    ["kubectl", "get", "pod", "-l", f"app={env_name}", "-o", "jsonpath={.status.containerStatuses[0].ready}", "-n", NAMESPACE],
-                    text=True, stderr=subprocess.DEVNULL
-                ).strip()
-                if ready_status == "true":
-                    break
-            except:
-                pass
-            time.sleep(1.5)
-
+        # INSTANT REDIRECTION - Reliability polling shifted to Frontend
         url = f"http://{MINIKUBE_IP}:{env_node_port}"
         return jsonify({"url": url})
 
