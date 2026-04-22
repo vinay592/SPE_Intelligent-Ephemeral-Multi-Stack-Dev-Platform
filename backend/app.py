@@ -154,31 +154,38 @@ TTL = 1800
 
 
 def cleanup_expired_envs():
+    """Background process to automatically dispose of expired environments"""
     while True:
-        time.sleep(60)
-        # Ensure path access for cleanup too
+        # Reduced sleep from 60s to 10s for more responsive disposal
+        time.sleep(10)
+        
         if "/snap/bin" not in os.environ.get("PATH", ""):
             os.environ["PATH"] += ":/snap/bin"
         os.environ["HOME"] = "/home/vinay-v-bhandare"
+
         try:
             now = time.time()
             cutoff_time = now - TTL
 
-            expired_envs = envs_col.find({"created_at": {"$lte": cutoff_time}})
+            expired_envs = list(envs_col.find({"created_at": {"$lte": cutoff_time}}))
 
             for env in expired_envs:
-                delete_k8s_resources(env["env_name"])
-                envs_col.delete_one({"env_name": env["env_name"]})
+                env_name = env["env_name"]
+                print(f"🧹 TTL: Cleaning up expired environment: {env_name}")
+                
+                delete_k8s_resources(env_name)
+                envs_col.delete_one({"env_name": env_name})
 
-                logging.info(f"TTL DELETE: {env['env_name']}")
-
+                logging.info(f"TTL DELETE SUCCESS: {env_name}")
                 log_to_es_async(index_name="app-logs", doc={
                     "event": "ttl_delete",
-                    "env": env["env_name"]
+                    "env": env_name
                 })
+                print(f"✅ TTL: Successfully purged {env_name}")
 
         except Exception as e:
-            print("TTL Error:", e)
+            print(f"❌ TTL Error: {e}")
+            logging.error(f"TTL Error: {e}")
 
 
 # ---------------- ROUTES ----------------

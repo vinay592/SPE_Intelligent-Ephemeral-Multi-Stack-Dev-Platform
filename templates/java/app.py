@@ -236,35 +236,40 @@ def home():
 
 @app.route('/run', methods=['POST'])
 def run():
-    code = request.json.get("code")
+    try:
+        code = request.json.get("code")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_path = os.path.join(tmpdir, "Main.java")
+            with open(file_path, "w") as f:
+                f.write(code)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        file_path = os.path.join(tmpdir, "Main.java")
+            # Compile
+            compile_process = subprocess.run(
+                ["javac", file_path],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
 
-        with open(file_path, "w") as f:
-            f.write(code)
+            if compile_process.stderr:
+                return jsonify({"error": compile_process.stderr})
 
-        # Compile
-        compile_process = subprocess.run(
-            ["javac", file_path],
-            capture_output=True,
-            text=True
-        )
+            # Run
+            run_process = subprocess.run(
+                ["java", "-cp", tmpdir, "Main"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
 
-        if compile_process.stderr:
-            return jsonify({"error": compile_process.stderr})
-
-        # Run
-        run_process = subprocess.run(
-            ["java", "-cp", tmpdir, "Main"],
-            capture_output=True,
-            text=True
-        )
-
-        return jsonify({
-            "output": run_process.stdout,
-            "error": run_process.stderr
-        })
+            return jsonify({
+                "output": run_process.stdout[:10000],
+                "error": run_process.stderr[:10000]
+            })
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "[TIMEOUT] Execution exceeded 10s limit. Check for infinite loops!"})
+    except Exception as e:
+        return jsonify({"error": f"[SYSTEM ERROR] {str(e)}"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8082)

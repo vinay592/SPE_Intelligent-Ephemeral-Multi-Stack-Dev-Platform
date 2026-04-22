@@ -413,15 +413,19 @@ function getEnvs() {
         } else {
             currentEnvs = data[user];
             currentEnvs.forEach(env => {
-                const timeLeft = getTimeLeft(env.created_at);
-                if (!timeLeft) return;
-
+                const timeLeftStr = getTimeLeft(env.created_at);
+                const isExpired = timeLeftStr === "Expired";
+                
                 const status = env.status || 'running';
                 let badgeClass = '';
                 let badgeText = '';
                 let launchDisabled = '';
 
-                if (status === 'provisioning') {
+                if (isExpired) {
+                    badgeClass = 'error';
+                    badgeText = '⏳ Disposing...';
+                    launchDisabled = 'disabled';
+                } else if (status === 'provisioning') {
                     badgeClass = 'provisioning';
                     badgeText = '⏳ Provisioning...';
                     launchDisabled = 'disabled';

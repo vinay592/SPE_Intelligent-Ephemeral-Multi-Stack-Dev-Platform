@@ -16,12 +16,12 @@ Before you begin, ensure you have the following installed:
 ## Phase 1: Infrastructure Setup
 
 ### Step 1: Automated Environment Prep
-Run the modular Ansible roles to configure Docker permissions and verify tools.
+Run the modular Ansible roles to configure Docker, Kubectl, Minikube, and **Trivy** (Security Scanner) automatically.
 ```bash
 cd ansible
 ansible-playbook setup.yml
 ```
-**Verification**: Run `docker ps` and `kubectl version` to ensure both are responding.
+**Verification**: Run `docker ps`, `kubectl version`, and `trivy --version` to ensure all tools are responding.
 
 ### Step 2: Boot Core Services
 Start the Kubernetes cluster and the Observability stack (ELK).

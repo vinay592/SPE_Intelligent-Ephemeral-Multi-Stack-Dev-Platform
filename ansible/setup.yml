@@ -4,3 +4,4 @@
     - common
     - docker
     - minikube
+    - trivy

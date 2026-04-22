@@ -243,22 +243,27 @@ def home():
 
 @app.route('/run', methods=['POST'])
 def run():
-    code = request.json.get("code")
+    try:
+        code = request.json.get("code")
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as f:
+            f.write(code.encode())
+            filename = f.name
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as f:
-        f.write(code.encode())
-        filename = f.name
+        result = subprocess.run(
+            ["python3", filename],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
 
-    result = subprocess.run(
-        ["python3", filename],
-        capture_output=True,
-        text=True
-    )
-
-    return jsonify({
-        "output": result.stdout.strip(),
-        "error": result.stderr.strip()
-    })
+        return jsonify({
+            "output": result.stdout.strip()[:10000],
+            "error": result.stderr.strip()[:10000]
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "[TIMEOUT] Execution exceeded 10s limit. Check for infinite loops!"})
+    except Exception as e:
+        return jsonify({"error": f"[SYSTEM ERROR] {str(e)}"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001)

@@ -1,4 +1,6 @@
 from flask import Flask, request, render_template_string
+import tempfile
+import subprocess
 
 app = Flask(__name__)
 
@@ -224,9 +226,6 @@ def home():
             timeBox.innerText = ((end - start) / 1000).toFixed(2) + "s";
             btn.disabled = false;
             
-            // Extract the output from the returned HTML simple template
-            // Since we still use the old /run for now which returns a full page, 
-            // but we want to stay in our premium UI.
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html;
             const output = tempDiv.querySelector('pre').innerText;
@@ -246,4 +245,31 @@ def home():
     </html>
     """
 
-app.run(host='0.0.0.0', port=8888)
+@app.route('/run', methods=['POST'])
+def run():
+    try:
+        code = request.form.get("code")
+        if not code:
+            return "Error: No code provided", 400
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as f:
+            f.write(code.encode())
+            filename = f.name
+
+        result = subprocess.run(
+            ["python3", filename],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        output = (result.stdout + result.stderr).strip()[:10000]
+        return f"<pre>{output or 'Execution finished.'}</pre>"
+        
+    except subprocess.TimeoutExpired:
+        return "<pre>[TIMEOUT] Execution exceeded 10s limit. check for infinite loops!</pre>"
+    except Exception as e:
+        return f"<pre>[SYSTEM ERROR] {str(e)}</pre>"
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8888)

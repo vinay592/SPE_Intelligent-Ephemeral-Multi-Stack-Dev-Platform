@@ -237,17 +237,27 @@ app.get("/", (req, res) => {
 });
 
 app.post("/run", (req, res) => {
-  const code = req.body.code;
+  try {
+    const code = req.body.code;
+    const filePath = path.join(__dirname, "temp.js");
+    fs.writeFileSync(filePath, code);
 
-  const filePath = path.join(__dirname, "temp.js");
-  fs.writeFileSync(filePath, code);
-
-  exec(`node ${filePath}`, (err, stdout, stderr) => {
-    res.json({
-      output: stdout.trim(),
-      error: stderr.trim()
+    // Hard 10s timeout to prevent infinite loop crashes
+    exec(`node ${filePath}`, { timeout: 10000, killSignal: 'SIGKILL' }, (err, stdout, stderr) => {
+      if (err && err.killed) {
+        return res.json({ 
+          error: "[TIMEOUT] Execution exceeded 10s limit. check for infinite loops!" 
+        });
+      }
+      
+      res.json({
+        output: (stdout || "").trim().substring(0, 10000),
+        error: (stderr || "").trim().substring(0, 10000)
+      });
     });
-  });
+  } catch (e) {
+    res.status(500).json({ error: "[SYSTEM ERROR] " + e.message });
+  }
 });
 
 app.listen(3000, "0.0.0.0", () => {
