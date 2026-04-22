@@ -61,7 +61,8 @@ pipeline {
         stage('Start ELK Monitoring') {
             steps {
                 sh '''
-                docker-compose down || true
+                # Aggressive cleanup to resolve container name conflicts
+                docker rm -f vault elasticsearch logstash kibana || true
                 docker-compose up -d
                 '''
             }
