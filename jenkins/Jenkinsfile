@@ -61,6 +61,7 @@ pipeline {
         stage('Start ELK Monitoring') {
             steps {
                 sh '''
+                docker-compose down || true
                 docker-compose up -d
                 '''
             }
