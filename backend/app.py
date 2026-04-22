@@ -235,17 +235,25 @@ def stress_env():
         data = request.get_json()
         env_name = data["env_name"]
         
+        # Get actual pod name (kubectl exec requires a pod, not a deployment)
+        pod_cmd = ["kubectl", "get", "pod", "-l", f"app={env_name}", "-o", "name", "-n", NAMESPACE]
+        pod_name = subprocess.check_output(pod_cmd, text=True).strip()
+        
+        if not pod_name:
+            return jsonify({"error": "No running pod found for this environment"}), 404
+
         # Run a CPU intensive task in the pod for 60 seconds
-        stress_cmd = ["kubectl", "exec", "-n", NAMESPACE, env_name, "--", "bash", "-c", "timeout 60s cat /dev/urandom | gzip -9 > /dev/null &"]
+        stress_cmd = ["kubectl", "exec", "-n", NAMESPACE, pod_name, "--", "bash", "-c", "timeout 60s cat /dev/urandom | gzip -9 > /dev/null &"]
         subprocess.run(stress_cmd, check=True)
         
-        logging.info(f"STRESS TEST TRIGGERED: {env_name}")
+        logging.info(f"STRESS TEST TRIGGERED: {env_name} on {pod_name}")
         log_to_es_async(index_name="app-logs", doc={
             "event": "stress_test",
-            "env": env_name
+            "env": env_name,
+            "pod": pod_name
         })
         
-        return jsonify({"status": "stressing", "message": "CPU load triggered for 60s"})
+        return jsonify({"status": "stressing", "message": f"CPU load triggered for 60s on {pod_name}"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

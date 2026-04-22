@@ -139,12 +139,19 @@ pipeline {
             }
         }
 
-        stage('Build & Push Image') {
+        stage('Build & Push All Images') {
             steps {
                 sh '''
                 echo "Vinay_vb18" | docker login -u vinayvb18 --password-stdin
-                docker build -t ${IMAGE_NAME}:latest templates/${STACK}
-                docker push ${IMAGE_NAME}:latest
+                
+                # List of all stacks to build and push
+                stacks=("flask" "java" "mern" "ml")
+                
+                for stack in "${stacks[@]}"; do
+                    echo "--- Building and Pushing: $stack ---"
+                    docker build -t "vinayvb18/${stack}-env:latest" "templates/${stack}"
+                    docker push "vinayvb18/${stack}-env:latest"
+                done
                 '''
             }
         }
