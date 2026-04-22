@@ -13,18 +13,31 @@ from elasticsearch import Elasticsearch
 import bcrypt
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Global HPA Cache for instant dashboard loads
+HPA_CACHE = {} 
 
 # Ensure kubectl can find the config even when run via sudo/Jenkins
 os.environ["HOME"] = "/home/vinay-v-bhandare"
 if "/snap/bin" not in os.environ.get("PATH", ""):
     os.environ["PATH"] += ":/snap/bin"
 
-# Discover Minikube IP once for fast routing
-try:
-    MINIKUBE_IP = subprocess.check_output(["minikube", "ip"], text=True).strip()
-except:
-    MINIKUBE_IP = "127.0.0.1"
+# Discover Minikube IP in background to avoid blocking main thread
+MINIKUBE_IP = "127.0.0.1"
+def discover_minikube_ip():
+    global MINIKUBE_IP
+    while True:
+        try:
+            ip = subprocess.check_output(["minikube", "ip"], text=True).strip()
+            if ip and ip != MINIKUBE_IP:
+                MINIKUBE_IP = ip
+                print(f"Minikube IP discovered: {MINIKUBE_IP} ✅")
+                break
+        except:
+            time.sleep(5)
+
+threading.Thread(target=discover_minikube_ip, daemon=True).start()
 
 # ---------------- CONFIG ----------------
 STACK_CONFIG = {
@@ -34,6 +47,29 @@ STACK_CONFIG = {
     "ml": {"image": "vinayvb18/ml-env:latest", "port": 8888}
 }
 
+# ---------------- BACKGROUND SYNC ----------------
+def sync_hpa_background():
+    global HPA_CACHE
+    while True:
+        try:
+            hpa_out = subprocess.check_output(
+                ["kubectl", "get", "hpa", "-n", NAMESPACE, "--no-headers"],
+                text=True, stderr=subprocess.DEVNULL
+            ).strip().split("\n")
+            
+            new_cache = {}
+            for line in hpa_out:
+                parts = line.split()
+                if len(parts) >= 7:
+                    hpa_name = parts[0].rsplit("-", 1)[0]
+                    new_cache[hpa_name] = f"{parts[6]}/{parts[5]}"
+            HPA_CACHE = new_cache
+        except:
+            pass
+        time.sleep(10)
+
+threading.Thread(target=sync_hpa_background, daemon=True).start()
+
 logging.basicConfig(
     filename="/tmp/app.log",
     level=logging.INFO,
@@ -41,21 +77,25 @@ logging.basicConfig(
 )
 
 # ---------------- ELASTICSEARCH ----------------
+# Non-blocking: connect in background so Flask starts instantly
 es = None
 ELASTICSEARCH_URI = os.getenv("ELASTICSEARCH_URI", "http://127.0.0.1:9200")
 
-for i in range(5):
-    try:
-        es = Elasticsearch(ELASTICSEARCH_URI)
-        es.info()
-        print("Elasticsearch connected ✅")
-        break
-    except:
-        print("Retrying Elasticsearch...", i + 1)
-        time.sleep(5)
-
-if not es:
+def _connect_es():
+    global es
+    for i in range(5):
+        try:
+            client = Elasticsearch(ELASTICSEARCH_URI)
+            client.info()
+            es = client
+            print("Elasticsearch connected ✅")
+            return
+        except:
+            print("Retrying Elasticsearch...", i + 1)
+            time.sleep(5)
     print("Elasticsearch not available ⚠️")
+
+threading.Thread(target=_connect_es, daemon=True).start()
 
 def log_to_es_async(index_name, doc):
     if es:
@@ -150,23 +190,8 @@ def home():
 @app.route('/envs', methods=['GET'])
 def list_envs():
     result = {}
-
-    # Batch fetch HPA data to avoid dashboard lag
-    hpa_map = {}
-    try:
-        hpa_out = subprocess.check_output(
-            ["kubectl", "get", "hpa", "-n", NAMESPACE, "--no-headers"],
-            text=True
-        ).strip().split("\n")
-        for line in hpa_out:
-            parts = line.split()
-            if len(parts) >= 7:
-                # 0:name, 5:max, 6:replicas
-                hpa_name = parts[0].rsplit("-", 1)[0]
-                hpa_map[hpa_name] = f"{parts[6]}/{parts[5]}"
-    except Exception as e:
-        logging.error(f"HPA Sync Error: {e}")
-
+    
+    # Read from instant background cache
     for env in envs_col.find():
         user = env["user"]
         env_name = env["env_name"]
@@ -178,7 +203,7 @@ def list_envs():
             "name": env_name,
             "stack": env.get("stack", "unknown"),
             "port": env["port"],
-            "pods": hpa_map.get(env_name, "1/3"),
+            "pods": HPA_CACHE.get(env_name, "1/3"),
             "created_at": env.get("created_at", time.time())
         })
 
@@ -287,6 +312,9 @@ def create_env():
         if len(current_envs) >= 3:
             return jsonify({"error": "Max 3 environments"}), 400
 
+        if stack not in STACK_CONFIG:
+            return jsonify({"error": f"Unknown stack: {stack}"}), 400
+
         config = STACK_CONFIG[stack]
         image = data.get("image", config["image"])
         port = config["port"]
@@ -306,83 +334,123 @@ def create_env():
         base_path = os.path.dirname(os.path.abspath(__file__))
         k8s_path = os.path.join(base_path, "..", "k8s")
 
-        pvc_yaml = load_yaml_template(
-            os.path.join(k8s_path, "pvc.yaml"),
-            {"ENV_NAME": env_name}
-        )
-
-        deployment_yaml = load_yaml_template(
-            os.path.join(k8s_path, "deployment.yaml"),
-            {
-                "ENV_NAME": env_name,
-                "IMAGE": image,
-                "PORT": port,
-                "CPU": cpu,
-                "MEMORY": memory
-            }
-        )
-
         service_name = f"{env_name}-svc"
         node_port = 30000 + int(env_id[:3], 16) % 2000
 
-        service_yaml = load_yaml_template(
-            os.path.join(k8s_path, "service.yaml"),
-            {
-                "ENV_NAME": env_name,
-                "SERVICE_NAME": service_name,
-                "PORT": port,
-                "NODE_PORT": node_port
-            }
-        )
-
-        hpa_yaml = load_yaml_template(
-            os.path.join(k8s_path, "hpa.yaml"),
-            {"ENV_NAME": env_name}
-        )
-
-        pvc_file = f"/tmp/pvc-{env_id}.yaml"
-        dep_file = f"/tmp/deploy-{env_id}.yaml"
-        svc_file = f"/tmp/service-{env_id}.yaml"
-        hpa_file = f"/tmp/hpa-{env_id}.yaml"
-
-        open(pvc_file, "w").write(pvc_yaml)
-        open(dep_file, "w").write(deployment_yaml)
-        open(svc_file, "w").write(service_yaml)
-        open(hpa_file, "w").write(hpa_yaml)
-
-        def run_kubectl(args):
-            res = subprocess.run(args, capture_output=True, text=True)
-            if res.returncode != 0:
-                raise Exception(f"Kubernetes error: {res.stderr or res.stdout}")
-            return res.stdout
-
-        run_kubectl(["kubectl", "apply", "-f", pvc_file])
-        run_kubectl(["kubectl", "apply", "-f", dep_file])
-        run_kubectl(["kubectl", "apply", "-f", svc_file])
-        run_kubectl(["kubectl", "apply", "-f", hpa_file])
-
+        # Insert record immediately so dashboard shows it right away
         envs_col.insert_one({
             "user": user,
             "stack": stack,
             "env_name": env_name,
             "port": node_port,
+            "status": "provisioning",
             "created_at": time.time()
         })
 
-        logging.info(f"ENV CREATED: {env_name} by {user}")
+        # Run kubectl in background so HTTP response is INSTANT
+        def provision_k8s():
+            try:
+                pvc_yaml = load_yaml_template(
+                    os.path.join(k8s_path, "pvc.yaml"),
+                    {"ENV_NAME": env_name}
+                )
+                deployment_yaml = load_yaml_template(
+                    os.path.join(k8s_path, "deployment.yaml"),
+                    {
+                        "ENV_NAME": env_name,
+                        "IMAGE": image,
+                        "PORT": port,
+                        "CPU": cpu,
+                        "MEMORY": memory
+                    }
+                )
+                service_yaml = load_yaml_template(
+                    os.path.join(k8s_path, "service.yaml"),
+                    {
+                        "ENV_NAME": env_name,
+                        "SERVICE_NAME": service_name,
+                        "PORT": port,
+                        "NODE_PORT": node_port
+                    }
+                )
+                hpa_yaml = load_yaml_template(
+                    os.path.join(k8s_path, "hpa.yaml"),
+                    {"ENV_NAME": env_name}
+                )
 
-        log_to_es_async(index_name="app-logs", doc={
-            "event": "create_env",
-            "user": user,
-            "env": env_name,
-            "port": node_port
-        })
+                pvc_file = f"/tmp/pvc-{env_id}.yaml"
+                dep_file = f"/tmp/deploy-{env_id}.yaml"
+                svc_file = f"/tmp/service-{env_id}.yaml"
+                hpa_file = f"/tmp/hpa-{env_id}.yaml"
+
+                open(pvc_file, "w").write(pvc_yaml)
+                open(dep_file, "w").write(deployment_yaml)
+                open(svc_file, "w").write(service_yaml)
+                open(hpa_file, "w").write(hpa_yaml)
+
+                def run_kubectl(args):
+                    res = subprocess.run(args, capture_output=True, text=True, timeout=30)
+                    if res.returncode != 0:
+                        raise Exception(f"kubectl error: {res.stderr or res.stdout}")
+                    return res.stdout
+
+                run_kubectl(["kubectl", "apply", "-f", pvc_file])
+                run_kubectl(["kubectl", "apply", "-f", dep_file])
+                run_kubectl(["kubectl", "apply", "-f", svc_file])
+                run_kubectl(["kubectl", "apply", "-f", hpa_file])
+
+                threading.Thread(target=verify_deployment, args=(env_name,), daemon=True).start()
+
+            except Exception as e:
+                error_msg = str(e)
+                envs_col.update_one(
+                    {"env_name": env_name},
+                    {"$set": {"status": "error", "error": error_msg}}
+                )
+                logging.error(f"PROVISION FAILED: {env_name} - {error_msg}")
+
+        def verify_deployment(name):
+            """Wait for deployment to be ready or fail after 5 mins"""
+            start_time = time.time()
+            while time.time() - start_time < 300:
+                try:
+                    out = subprocess.check_output(
+                        ["kubectl", "get", "deployment", name, "-n", NAMESPACE, "-o", "json"],
+                        text=True
+                    )
+                    data = json.loads(out)
+                    ready_replicas = data.get("status", {}).get("readyReplicas", 0)
+                    if ready_replicas >= 1:
+                        envs_col.update_one({"env_name": name}, {"$set": {"status": "running"}})
+                        return
+                    
+                    # Check for image pull errors
+                    pod_out = subprocess.check_output(
+                        ["kubectl", "get", "pods", "-n", NAMESPACE, "-l", f"app={name}", "-o", "json"],
+                        text=True
+                    )
+                    pod_data = json.loads(pod_out)
+                    if pod_data.get("items"):
+                        container_statuses = pod_data["items"][0].get("status", {}).get("containerStatuses", [])
+                        for cs in container_statuses:
+                            waiting = cs.get("state", {}).get("waiting", {})
+                            if waiting.get("reason") in ["ImagePullBackOff", "ErrImagePull"]:
+                                envs_col.update_one({"env_name": name}, {"$set": {"status": "error", "error": f"Image Error: {waiting.get('message')}"}})
+                                return
+                except:
+                    pass
+                time.sleep(5)
+            
+            # Timeout
+            envs_col.update_one({"env_name": name}, {"$set": {"status": "error", "error": "Provisioning timed out (5m)"}})
+
+        threading.Thread(target=provision_k8s, daemon=True).start()
 
         return jsonify({
             "env_name": env_name,
             "access_port": node_port,
-            "status": "created"
-        })
+            "status": "provisioning"
+        }), 202
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

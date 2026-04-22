@@ -193,6 +193,18 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     margin-left: 15px;
     white-space: nowrap;
 }
+.status-badge.provisioning {
+    background: rgba(250, 204, 21, 0.15);
+    color: #facc15;
+    border-color: rgba(250, 204, 21, 0.3);
+    animation: pulse-badge 1.5s infinite alternate;
+}
+.status-badge.error {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+@keyframes pulse-badge { from { opacity: 0.7; } to { opacity: 1; } }
 .env-info p { margin: 6px 0 0; font-size: 14px; color: #94a3b8; }
 .env-info code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; color: #f472b6; }
 .timer { color: #facc15 !important; font-weight: 500; }
@@ -319,13 +331,18 @@ async function createEnv() {
     const spinner = document.getElementById("createSpinner");
 
     btn.disabled = true;
-    txt.innerText = "Provisioning Container...";
+    txt.innerText = "Submitting...";
     spinner.style.display = "block";
+
+    // 15-second timeout so the button is NEVER permanently stuck
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     try {
         const res = await fetch(BASE_URL + "/create-env", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
+            signal: controller.signal,
             body: JSON.stringify({
                 stack: stackVal,
                 user: user,
@@ -333,17 +350,24 @@ async function createEnv() {
                 memory: memory.value + "Mi"
             })
         });
+        clearTimeout(timeout);
 
         const data = await res.json();
-        
-        if (res.ok) {
-            showToast("✅ Environment cluster deployed successfully!");
-            getEnvs();
+
+        // 200 (sync legacy) or 202 (async provisioning) are both success
+        if (res.ok || res.status === 202) {
+            showToast("🚀 Environment queued! Provisioning in background...");
+            setTimeout(getEnvs, 500);
         } else {
-            showToast(`❌ Error: ${data.error || data.message || "Failed to deploy"}`, true);
+            showToast(`❌ Error: ${data.error || data.message || "Unknown error"}`, true);
         }
     } catch (err) {
-        showToast("🔥 Critical Error: Backend unrachable. Is app.py running?", true);
+        clearTimeout(timeout);
+        if (err.name === 'AbortError') {
+            showToast("⏱️ Request timed out. Check if backend is running.", true);
+        } else {
+            showToast("🔥 Cannot reach backend. Is app.py running on port 5001?", true);
+        }
     } finally {
         btn.disabled = false;
         txt.innerText = "Deploy Environment";
@@ -352,11 +376,12 @@ async function createEnv() {
 }
 
 function getTimeLeft(createdAt) {
+    if (!createdAt) return "Unknown";
     const ttl = 1800; // 30 minutes
     const now = Math.floor(Date.now() / 1000);
     const diff = ttl - (now - createdAt);
 
-    if (diff <= 0) return null;
+    if (diff <= 0) return "Expired";
 
     const mins = Math.floor(diff / 60);
     const secs = Math.floor(diff % 60);
@@ -371,25 +396,48 @@ function getEnvs() {
         let html = "";
 
         if (!data[user] || data[user].length === 0) {
-            html = "<div style='text-align: center; color: #64748b; padding: 20px 0;'>No active environments detected.</br><small>Provision a new stack above to begin.</small></div>";
+            html = "<div style='text-align: center; color: #64748b; padding: 20px 0;'>No active environments detected.<br><small>Provision a new stack above to begin.</small></div>";
         } else {
             data[user].forEach(env => {
                 const timeLeft = getTimeLeft(env.created_at);
-                if (!timeLeft) return; // Expired
+                if (!timeLeft) return;
+
+                const status = env.status || 'running';
+                let badgeClass = '';
+                let badgeText = '';
+                let launchDisabled = '';
+
+                if (status === 'provisioning') {
+                    badgeClass = 'provisioning';
+                    badgeText = '⏳ Provisioning...';
+                    launchDisabled = 'disabled';
+                } else if (status === 'error') {
+                    badgeClass = 'error';
+                    badgeText = '❌ Error';
+                    launchDisabled = 'disabled';
+                } else {
+                    badgeText = `Scaling: ${env.pods || '1/3'}`;
+                }
+
+                let errorHtml = "";
+                if (status === 'error') {
+                    errorHtml = `<p style="color: #ef4444; font-size: 11px; margin-top: 4px;">Error: ${env.error || 'Provisioning failed'}</p>`;
+                }
 
                 html += `
                 <div class="env-item">
                     <div class="env-info">
                         <div style="display:flex; align-items:center; gap: 15px;">
                             <h4>${env.name}</h4>
-                            <span class="status-badge">Scaling: ${env.pods || '1/3'}</span>
+                            <span class="status-badge ${badgeClass}">${badgeText}</span>
                         </div>
                         <p>Framework: <b>${env.stack.toUpperCase()}</b></p>
                         <p>Access Port: <code>${env.port}</code></p>
                         <p class="timer">⏳ Auto-delete in: ${timeLeft}</p>
+                        ${errorHtml}
                     </div>
                     <div class="env-actions">
-                        <button class="launch-btn" id="launch-${env.name}" onclick="openEnv('${env.name}')">Launch App</button>
+                        <button class="launch-btn" id="launch-${env.name}" onclick="openEnv('${env.name}')" ${launchDisabled}>Launch App</button>
                         <button class="delete-btn" id="del-${env.name}" onclick="deleteEnv('${env.name}')">Dispose</button>
                     </div>
                 </div>
@@ -418,7 +466,10 @@ function openEnv(name) {
     .then(data => {
         btn.innerText = originalText;
         btn.disabled = false;
-        if(data.url) showLoadingScreen(data.url);
+        if(data.url) {
+            showToast("🚀 Bridge established! Redirecting...");
+            showLoadingScreen(data.url);
+        }
         else showToast("Cluster routing not ready yet.", true);
     }).catch(() => {
         btn.innerText = originalText;
@@ -495,8 +546,8 @@ async function deleteEnv(name) {
     getEnvs();
 }
 
-// Auto sync
-setInterval(getEnvs, 2000);
+// Auto sync every 5s (was 2s — reduces backend hammering)
+setInterval(getEnvs, 5000);
 getEnvs();
 </script>
 

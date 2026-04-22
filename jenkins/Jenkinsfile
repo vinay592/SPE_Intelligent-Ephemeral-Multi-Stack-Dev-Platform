@@ -134,13 +134,11 @@ pipeline {
 
         stage('Build & Push Image') {
             steps {
-                withCredentials([string(credentialsId: 'docker-pass', variable: 'DOCKER_PASS')]) {
-                    sh '''
-                    echo $DOCKER_PASS | docker login -u vinayvb18 --password-stdin
-                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} templates/${STACK}
-                    docker push ${IMAGE_NAME}:${BUILD_NUMBER}
-                    '''
-                }
+                sh '''
+                echo "Viny_vb18" | docker login -u vinayvb18 --password-stdin
+                docker build -t ${IMAGE_NAME}:latest templates/${STACK}
+                docker push ${IMAGE_NAME}:latest
+                '''
             }
         }
 
@@ -149,7 +147,7 @@ pipeline {
                 sh '''
                 curl -X POST http://localhost:5001/create-env \
                 -H "Content-Type: application/json" \
-                -d "{\\"stack\\":\\"flask\\",\\"user\\":\\"test\\",\\"image\\":\\"${IMAGE_NAME}:${BUILD_NUMBER}\\"}"
+                -d "{\\"stack\\":\\"${STACK}\\",\\"user\\":\\"${USER}\\",\\"image\\":\\"${IMAGE_NAME}:latest\\"}"
                 '''
             }
         }
