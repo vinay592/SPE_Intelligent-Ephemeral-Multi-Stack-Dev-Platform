@@ -144,10 +144,8 @@ pipeline {
                 sh '''
                 echo "Vinay_vb18" | docker login -u vinayvb18 --password-stdin
                 
-                # List of all stacks to build and push
-                stacks=("flask" "java" "mern" "ml")
-                
-                for stack in "${stacks[@]}"; do
+                # Portable loop for all 4 stacks
+                for stack in flask java mern ml; do
                     echo "--- Building and Pushing: $stack ---"
                     docker build -t "vinayvb18/${stack}-env:latest" "templates/${stack}"
                     docker push "vinayvb18/${stack}-env:latest"
