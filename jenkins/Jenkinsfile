@@ -142,22 +142,18 @@ pipeline {
         stage('Build & Push All Images') {
             steps {
                 sh '''
-                # SECURE STORAGE: Fetch password from HashiCorp Vault
+                # SECURE STORAGE: Fetch password from HashiCorp Vault (KV V2)
                 echo "🔑 Fetching Docker Hub credentials from Vault..."
                 
-                # Fetch response from the direct path
-                VAULT_RAW=$(curl -s -H "X-Vault-Token: root" http://localhost:8200/v1/secret/docker-hub)
+                # Fetching explicitly from the V2 'data' path
+                VAULT_RAW=$(curl -s -H "X-Vault-Token: root" http://localhost:8200/v1/secret/data/docker-hub)
                 
-                # Extraction 1: Check if it's stored in ['data']['password'] (V1 style)
-                DOCKER_PW=$(echo "$VAULT_RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('password', ''))" 2>/dev/null)
-                
-                # Extraction 2: Check if it's stored in ['data']['data']['password'] (V2 style fallback)
-                if [ -z "$DOCKER_PW" ]; then
-                   DOCKER_PW=$(echo "$VAULT_RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('data', {}).get('password', ''))" 2>/dev/null)
-                fi
+                # Extract using the nested V2 structure
+                DOCKER_PW=$(echo "$VAULT_RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('data', {}).get('password', ''))" 2>/dev/null)
                 
                 if [ -z "$DOCKER_PW" ]; then
-                    echo "❌ Failed to fetch password from Vault! (Clean RAW: $VAULT_RAW)"
+                    echo "❌ Failed to fetch password from Vault!"
+                    echo "🔎 Debug RAW Response: $VAULT_RAW"
                     exit 1
                 fi
                 echo "$DOCKER_PW" | docker login -u vinayvb18 --password-stdin
