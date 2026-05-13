@@ -142,18 +142,28 @@ pipeline {
         stage('Build & Push All Images') {
             steps {
                 sh '''
-                # SECURE STORAGE: Fetch password from HashiCorp Vault (KV V2)
-                echo "🔑 Fetching Docker Hub credentials from Vault..."
+                # SECURE STORAGE: Universal Vault Lookup
+                echo "🔑 Probing Vault for Docker Hub credentials..."
                 
-                # Fetching explicitly from the V2 'data' path
-                VAULT_RAW=$(curl -s -H "X-Vault-Token: root" http://localhost:8200/v1/secret/data/docker-hub)
-                
-                # Extract using the nested V2 structure
-                DOCKER_PW=$(echo "$VAULT_RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('data', {}).get('password', ''))" 2>/dev/null)
+                DOCKER_PW=""
+                for PATH in "secret/data/docker-hub" "secret/docker-hub" "kv/data/docker-hub" "kv/docker-hub"; do
+                    RAW=$(curl -s -H "X-Vault-Token: root" http://localhost:8200/v1/$PATH)
+                    # Try V2 extraction
+                    PW=$(echo "$RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('data', {}).get('password', ''))" 2>/dev/null)
+                    # Try V1 extraction
+                    if [ -z "$PW" ]; then
+                        PW=$(echo "$RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('password', ''))" 2>/dev/null)
+                    fi
+                    
+                    if [ ! -z "$PW" ]; then
+                        DOCKER_PW="$PW"
+                        echo "✅ Credentials found at path: v1/$PATH"
+                        break
+                    fi
+                done
                 
                 if [ -z "$DOCKER_PW" ]; then
-                    echo "❌ Failed to fetch password from Vault!"
-                    echo "🔎 Debug RAW Response: $VAULT_RAW"
+                    echo "❌ Failed to fetch password from ALL possible Vault paths!"
                     exit 1
                 fi
                 echo "$DOCKER_PW" | docker login -u vinayvb18 --password-stdin
