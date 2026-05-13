@@ -109,10 +109,10 @@ pipeline {
                 dir('backend') {
                     sh '''
                     export JENKINS_NODE_COOKIE=dontKillMe
-                    # Robust port cleanup: Check if port 5001 is busy, then kill it
-                    if sudo lsof -Pi :5001 -sTCP:LISTEN -t > /dev/null ; then
-                        echo "Port 5001 is currently occupied. Clearing it now..."
-                        sudo fuser -k 5001/tcp || true
+                    # Robust port cleanup: Check if port 5002 is busy, then kill it
+                    if sudo lsof -Pi :5002 -sTCP:LISTEN -t > /dev/null ; then
+                        echo "Port 5002 is currently occupied. Clearing it now..."
+                        sudo fuser -k 5002/tcp || true
                         sleep 2
                     fi
                     
@@ -122,14 +122,14 @@ pipeline {
                     # Wait for backend to fully start and bind to port
                     sleep 5
                     
-                    # Check if port 5001 is listening
-                    curl -s http://localhost:5001/ || true
+                    # Check if port 5002 is listening
+                    curl -s http://localhost:5002/ || true
 
-                    curl -s -X POST http://localhost:5001/signup \
+                    curl -s -X POST http://localhost:5002/signup \
                       -H "Content-Type: application/json" \
                       -d '{"username":"testuser","password":"123"}' || true
                     
-                    login_res=$(curl -s -X POST http://localhost:5001/login \
+                    login_res=$(curl -s -X POST http://localhost:5002/login \
                       -H "Content-Type: application/json" \
                       -d '{"username":"testuser","password":"123"}')
 
