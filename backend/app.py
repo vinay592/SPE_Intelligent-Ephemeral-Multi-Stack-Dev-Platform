@@ -371,7 +371,7 @@ def create_env():
             return jsonify({"error": "Max 3 environments"}), 400
 
         if stack not in STACK_CONFIG:
-            return jsonify({"error": f"Unknown stack: {stack}"}), 400
+            return jsonify({"error": f"Unknown stack: {stack}"}), 400 #This comment
 
         config = STACK_CONFIG[stack]
         image = data.get("image", config["image"])
