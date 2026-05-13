@@ -142,30 +142,17 @@ pipeline {
         stage('Build & Push All Images') {
             steps {
                 sh '''
-                # SECURE STORAGE: Universal Vault Lookup
-                echo "🔑 Probing Vault for Docker Hub credentials..."
+                # SECURE STORAGE: Direct Container Access
+                echo "🔑 Fetching Docker Hub credentials from Vault container..."
                 
-                DOCKER_PW=""
-                for V_PATH in "secret/data/docker-hub" "secret/docker-hub" "kv/data/docker-hub" "kv/docker-hub"; do
-                    RAW=$(curl -s -H "X-Vault-Token: root" http://localhost:8200/v1/$V_PATH)
-                    # Try V2 extraction
-                    PW=$(echo "$RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('data', {}).get('password', ''))" 2>/dev/null)
-                    # Try V1 extraction
-                    if [ -z "$PW" ]; then
-                        PW=$(echo "$RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('password', ''))" 2>/dev/null)
-                    fi
-                    
-                    if [ ! -z "$PW" ]; then
-                        DOCKER_PW="$PW"
-                        echo "✅ Credentials found at path: v1/$V_PATH"
-                        break
-                    fi
-                done
+                # We use 'docker exec' because we verified it works manually
+                DOCKER_PW=$(sudo docker exec -e VAULT_TOKEN=root vault vault kv get -field=password secret/docker-hub || echo "")
                 
                 if [ -z "$DOCKER_PW" ]; then
-                    echo "❌ Failed to fetch password from ALL possible Vault paths!"
+                    echo "❌ Failed to fetch password from Vault container!"
                     exit 1
                 fi
+                echo "✅ Credentials retrieved successfully."
                 echo "$DOCKER_PW" | docker login -u vinayvb18 --password-stdin
                 
                 # Portable loop for all 4 stacks
