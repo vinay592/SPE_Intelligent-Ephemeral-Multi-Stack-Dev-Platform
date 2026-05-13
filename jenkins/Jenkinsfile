@@ -144,9 +144,14 @@ pipeline {
                 sh '''
                 # SECURE STORAGE: Fetch password from HashiCorp Vault instead of hardcoding
                 echo "🔑 Fetching Docker Hub credentials from Vault..."
-                DOCKER_PW=$(curl -s -H "X-Vault-Token: root" http://localhost:8200/v1/secret/data/docker-hub | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['data']['password'])" || echo "")
                 
-                if [ -z "$DOCKER_PW" ] || [ "$DOCKER_PW" == "None" ]; then
+                # Fetch full response first for debugging/safety
+                VAULT_RAW=$(curl -s -H "X-Vault-Token: root" http://localhost:8200/v1/secret/data/docker-hub)
+                
+                # Use robust python extraction
+                DOCKER_PW=$(echo "$VAULT_RAW" | python3 -c "import sys, json; res=json.load(sys.stdin); print(res.get('data', {}).get('data', {}).get('password', ''))" 2>/dev/null)
+                
+                if [ -z "$DOCKER_PW" ]; then
                     echo "❌ Failed to fetch password from Vault! Ensure Vault is seeded with 'docker-hub' secret."
                     exit 1
                 fi
