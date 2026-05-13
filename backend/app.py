@@ -343,10 +343,10 @@ def login():
     user = users_col.find_one({"username": username})
 
     if not user:
-        return jsonify({"status": False}), 404
+        return jsonify({"status": False, "error": "Invalid username or password"}), 404
 
     if not bcrypt.checkpw(password.encode(), user["password"]):
-        return jsonify({"status": False}), 401
+        return jsonify({"status": False, "error": "Invalid username or password"}), 401
 
     logging.info(f"LOGIN SUCCESS: {username}")
 
