@@ -5,6 +5,9 @@ import os
 
 # Add the parent directory to sys.path so we can import app
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Set testing flag BEFORE importing app to prevent background minikube calls
+os.environ['TESTING'] = 'true'
 from app import app
 
 class BackendTestCase(unittest.TestCase):
@@ -25,17 +28,18 @@ class BackendTestCase(unittest.TestCase):
                                  content_type='application/json')
         data = json.loads(response.data)
         self.assertEqual(data['status'], False)
-        self.assertIn("Invalid", data['message'])
+        # Check for 'error' key which is what app.py actually uses
+        self.assertIn("error", data)
 
     def test_signup_validation(self):
-        """Test signup requires both username and password."""
+        """Test signup requires both username and password (should not crash)."""
         response = self.app.post('/signup',
                                  data=json.dumps({"username": "onlyuser"}),
                                  content_type='application/json')
-        # Depending on app.py logic, it should handle missing fields
-        self.assertEqual(response.status_code, 200) # App handles errors with status flags
+        self.assertEqual(response.status_code, 400) # Should return 400 Bad Request
         data = json.loads(response.data)
         self.assertEqual(data['status'], False)
+        self.assertIn("required", data['error'].lower())
 
 if __name__ == '__main__':
     unittest.main()

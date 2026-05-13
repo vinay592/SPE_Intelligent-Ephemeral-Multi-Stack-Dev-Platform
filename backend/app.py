@@ -38,7 +38,8 @@ def discover_minikube_ip():
         except:
             time.sleep(5)
 
-threading.Thread(target=discover_minikube_ip, daemon=True).start()
+if not os.environ.get("TESTING"):
+    threading.Thread(target=discover_minikube_ip, daemon=True).start()
 
 # ---------------- CONFIG ----------------
 STACK_CONFIG = {
@@ -310,8 +311,11 @@ def signup():
     username = data.get("username")
     password = data.get("password")
 
+    if not username or not password:
+        return jsonify({"status": False, "error": "Username and password required"}), 400
+
     if users_col.find_one({"username": username}):
-        return jsonify({"error": "User exists"}), 400
+        return jsonify({"status": False, "error": "User already exists"}), 200
 
     hashed_pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
 
