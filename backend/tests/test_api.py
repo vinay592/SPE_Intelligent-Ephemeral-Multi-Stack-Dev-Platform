@@ -6,6 +6,8 @@ import os
 # Add the parent directory to sys.path so we can import app
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from unittest.mock import patch
+
 # Set testing flag BEFORE importing app to prevent background minikube calls
 os.environ['TESTING'] = 'true'
 from app import app
@@ -21,8 +23,10 @@ class BackendTestCase(unittest.TestCase):
         response = self.app.get('/')
         self.assertEqual(response.status_code, 200)
 
-    def test_invalid_login(self):
+    @patch('app.users_col')
+    def test_invalid_login(self, mock_users_col):
         """Test login with non-existent user."""
+        mock_users_col.find_one.return_value = None
         response = self.app.post('/login',
                                  data=json.dumps({"username": "nonexistent", "password": "123"}),
                                  content_type='application/json')
