@@ -57,6 +57,20 @@ pipeline {
                 }
             }
         }
+        stage('Run Unit Tests') {
+            steps {
+                dir('backend') {
+                    sh '''
+                    # Install pytest if not present
+                    ./venv/bin/pip install pytest
+                    
+                    # Run the professional test suite
+                    echo "🧪 Running Python Unit Tests..."
+                    ./venv/bin/pytest tests/test_api.py -v
+                    '''
+                }
+            }
+        }
 
         stage('Start ELK Monitoring') {
             steps {
@@ -119,19 +133,22 @@ pipeline {
                     # start backend in background as the local user so it has kubectl rights
                     sudo -E -u vinay-v-bhandare bash -c "nohup /var/lib/jenkins/workspace/spe_project_pipeline/backend/venv/bin/python /var/lib/jenkins/workspace/spe_project_pipeline/backend/app.py > /tmp/backend.log 2>&1 &"
                     
-                    # Wait for backend to fully start and bind to port
-                    sleep 5
+                    # Wait longer for backend & Mongo connection to stabilize
+                    echo "⌛ Waiting 15s for services to stabilize..."
+                    sleep 15
                     
                     # Check if port 5002 is listening
-                    curl -s http://localhost:5002/ || true
+                    curl -v http://localhost:5002/ || true
 
-                    curl -s -X POST http://localhost:5002/signup \
+                    echo "📝 Attempting Signup..."
+                    curl -v -X POST http://localhost:5002/signup \
                       -H "Content-Type: application/json" \
-                      -d '{"username":"testuser","password":"123"}' || true
+                      -d "{\"username\":\"testuser\",\"password\":\"123\"}" || true
                     
+                    echo "🔑 Attempting Login..."
                     login_res=$(curl -s -X POST http://localhost:5002/login \
                       -H "Content-Type: application/json" \
-                      -d '{"username":"testuser","password":"123"}')
+                      -d "{\"username\":\"testuser\",\"password\":\"123\"}")
 
                     echo "$login_res" | grep '"status": true' || exit 1
                     '''
