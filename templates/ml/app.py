@@ -260,14 +260,14 @@ def run():
             ["python3", filename],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=30
         )
 
         output = (result.stdout + result.stderr).strip()[:10000]
         return f"<pre>{output or 'Execution finished.'}</pre>"
         
     except subprocess.TimeoutExpired:
-        return "<pre>[TIMEOUT] Execution exceeded 10s limit. check for infinite loops!</pre>"
+        return "<pre>[TIMEOUT] Execution exceeded 30s limit. check for infinite loops!</pre>"
     except Exception as e:
         return f"<pre>[SYSTEM ERROR] {str(e)}</pre>"
 

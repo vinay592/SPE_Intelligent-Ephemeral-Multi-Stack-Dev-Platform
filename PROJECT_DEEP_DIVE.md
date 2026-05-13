@@ -33,7 +33,7 @@ Each stack is a fully isolated, containerized web-IDE based on Monaco Editor.
 
 *   **WHAT they do**: Provide a real-time coding environment where users can write and execute code within the browser.
 *   **STABILITY GUARDRAILS** (Triggered on every "RUN" click):
-    *   **Execution Timeout (10s)**: Automatically kills any process (like infinite loops) that exceeds the limit.
+    *   **Execution Timeout (30s)**: Automatically kills any process (like infinite loops) that exceeds the limit.
     *   **Output Truncation (10KB)**: Limits the stdout/stderr buffer to prevent memory exhaustion and pod crashes.
 *   **HOW it works**: A hidden Flask/Node.js backend inside the pod receives the code via POST, writes it to a temporary file, executes it via a subprocess, and returns the output to the Monaco console.
 
@@ -69,6 +69,6 @@ The platform proactively manages resources.
 ## 🔄 Trigger Flow Example
 1. **User** clicks "Run Java" with a complex loop.
 2. **Frontend** POSTs code to **Pod IP**.
-3. **Internal Backend (templates/java/app.py)** executes code with a **10s Timeout**.
+3. **Internal Backend (templates/java/app.py)** executes code with a **30s Timeout**.
 4. **HPA Controller** monitors the CPU spike.
 5. **Ansible/Trivy** ensures that the pod being scaled was previously audited for security.

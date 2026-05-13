@@ -243,10 +243,10 @@ app.post("/run", (req, res) => {
     fs.writeFileSync(filePath, code);
 
     // Hard 10s timeout to prevent infinite loop crashes
-    exec(`node ${filePath}`, { timeout: 10000, killSignal: 'SIGKILL' }, (err, stdout, stderr) => {
+    exec(`node ${filePath}`, { timeout: 30000, killSignal: 'SIGKILL' }, (err, stdout, stderr) => {
       if (err && err.killed) {
         return res.json({ 
-          error: "[TIMEOUT] Execution exceeded 10s limit. check for infinite loops!" 
+          error: "[TIMEOUT] Execution exceeded 30s limit. check for infinite loops!" 
         });
       }
       

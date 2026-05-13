@@ -142,7 +142,15 @@ pipeline {
         stage('Build & Push All Images') {
             steps {
                 sh '''
-                echo "Vinay_vb18" | docker login -u vinayvb18 --password-stdin
+                # SECURE STORAGE: Fetch password from HashiCorp Vault instead of hardcoding
+                echo "🔑 Fetching Docker Hub credentials from Vault..."
+                DOCKER_PW=$(curl -s -H "X-Vault-Token: root" http://localhost:8200/v1/secret/data/docker-hub | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['data']['password'])" || echo "")
+                
+                if [ -z "$DOCKER_PW" ] || [ "$DOCKER_PW" == "None" ]; then
+                    echo "❌ Failed to fetch password from Vault! Ensure Vault is seeded with 'docker-hub' secret."
+                    exit 1
+                fi
+                echo "$DOCKER_PW" | docker login -u vinayvb18 --password-stdin
                 
                 # Portable loop for all 4 stacks
                 for stack in flask java mern ml; do

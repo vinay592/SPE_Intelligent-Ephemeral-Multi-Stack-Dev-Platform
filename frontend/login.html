@@ -162,7 +162,7 @@
 </div>
 
 <script>
-const API = "http://localhost:5001";
+const API = "http://localhost:5002";
 
 function setLoading(isLoading) {
     const loginBtn = document.getElementById("loginBtn");
@@ -207,7 +207,7 @@ function login() {
         if(data.status) {
             showMsg("✅ Login successful! Routing...", "#10b981");
             localStorage.setItem("user", username);
-            setTimeout(() => { window.location.href = "index.html"; }, 800);
+            setTimeout(() => { window.location.href = "launchpad.html"; }, 800);
         } else {
             showMsg(data.error || "❌ Invalid credentials.", "#ef4444");
         }

@@ -147,7 +147,7 @@ def home():
         <div class="logo">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
             <h2>Java Cloud Studio</h2>
-            <div class="status-badge">OpenJDK 11</div>
+            <div class="status-badge">OpenJDK 17</div>
         </div>
         <div style="font-size: 11px; color: #64748b; font-weight: 500;">JAVA EPHEMERAL STACK</div>
     </header>
@@ -248,7 +248,7 @@ def run():
                 ["javac", file_path],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=30
             )
 
             if compile_process.stderr:
@@ -259,7 +259,7 @@ def run():
                 ["java", "-cp", tmpdir, "Main"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=30
             )
 
             return jsonify({
@@ -267,7 +267,7 @@ def run():
                 "error": run_process.stderr[:10000]
             })
     except subprocess.TimeoutExpired:
-        return jsonify({"error": "[TIMEOUT] Execution exceeded 10s limit. Check for infinite loops!"})
+        return jsonify({"error": "[TIMEOUT] Execution exceeded 30s limit. Check for infinite loops!"})
     except Exception as e:
         return jsonify({"error": f"[SYSTEM ERROR] {str(e)}"})
 

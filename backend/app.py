@@ -11,6 +11,7 @@ from pymongo import MongoClient
 import logging
 from elasticsearch import Elasticsearch
 import bcrypt
+import requests
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -97,14 +98,19 @@ def _connect_es():
 
 threading.Thread(target=_connect_es, daemon=True).start()
 
+LOGSTASH_URL = os.getenv("LOGSTASH_URL", "http://127.0.0.1:5044")
+
 def log_to_es_async(index_name, doc):
-    if es:
-        def task():
-            try:
-                es.index(index=index_name, document=doc)
-            except Exception as e:
-                logging.error(f"Elasticsearch indexing failed: {e}")
-        threading.Thread(target=task, daemon=True).start()
+    """Event Logger: Sends structured logs to Logstash via HTTP"""
+    def task():
+        try:
+            # Include metadata for Logstash processing
+            doc["log_index"] = index_name
+            doc["timestamp"] = time.time()
+            requests.post(LOGSTASH_URL, json=doc, timeout=2)
+        except Exception as e:
+            logging.error(f"Logstash logging failed: {e}")
+    threading.Thread(target=task, daemon=True).start()
 
 
 NAMESPACE = "dev-platform"
@@ -252,9 +258,17 @@ def stress_env():
         # Pick the first pod if multiple are returned (e.g. during scaling or restarts)
         pod_name = pod_output.split('\n')[0]
 
-        # Run a CPU intensive task in the pod for 60 seconds (using 'sh' for compatibility)
-        stress_cmd = ["kubectl", "exec", "-n", NAMESPACE, pod_name, "--", "sh", "-c", "timeout 60s cat /dev/urandom | gzip -9 > /dev/null &"]
-        subprocess.run(stress_cmd, check=True)
+        # Run in a background thread so the HTTP response is instant, 
+        # but the load is sustained for 60s
+        def run_load():
+            try:
+                # Increased to 120s to ensure HPA has reliable metrics window
+                stress_cmd = ["kubectl", "exec", "-n", NAMESPACE, pod_name, "--", "sh", "-c", "timeout 120s cat /dev/urandom | gzip -9 > /dev/null"]
+                subprocess.run(stress_cmd, check=True)
+            except Exception as e:
+                logging.error(f"Stress execution failed: {e}")
+
+        threading.Thread(target=run_load, daemon=True).start()
         
         logging.info(f"STRESS TEST TRIGGERED: {env_name} on {pod_name}")
         log_to_es_async(index_name="app-logs", doc={
@@ -499,4 +513,4 @@ def create_env():
 # ---------------- START ----------------
 if __name__ == '__main__':
     threading.Thread(target=cleanup_expired_envs, daemon=True).start()
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=5002)

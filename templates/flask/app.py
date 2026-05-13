@@ -253,7 +253,7 @@ def run():
             ["python3", filename],
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=30
         )
 
         return jsonify({
@@ -261,7 +261,7 @@ def run():
             "error": result.stderr.strip()[:10000]
         })
     except subprocess.TimeoutExpired:
-        return jsonify({"error": "[TIMEOUT] Execution exceeded 10s limit. Check for infinite loops!"})
+        return jsonify({"error": "[TIMEOUT] Execution exceeded 30s limit. Check for infinite loops!"})
     except Exception as e:
         return jsonify({"error": f"[SYSTEM ERROR] {str(e)}"})
 

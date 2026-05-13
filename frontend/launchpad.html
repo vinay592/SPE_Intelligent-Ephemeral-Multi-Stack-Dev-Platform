@@ -298,7 +298,7 @@ button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 </div>
 
 <script>
-const BASE_URL = "http://localhost:5001";
+const BASE_URL = "http://localhost:5002";
 const user = localStorage.getItem("user");
 
 if (!user) window.location.href = "login.html";
@@ -345,7 +345,7 @@ async function createEnv() {
             signal: controller.signal,
             body: JSON.stringify({
                 stack: stackVal,
-                user: user,
+                user: user.toLowerCase(),
                 cpu: cpu.value + "m",
                 memory: memory.value + "Mi"
             })
@@ -381,11 +381,21 @@ function getTimeLeft(createdAt) {
     const now = Math.floor(Date.now() / 1000);
     const diff = ttl - (now - createdAt);
 
-    if (diff <= 0) return "Expired";
+    if (diff <= 0) return "Disposing...";
 
     const mins = Math.floor(diff / 60);
     const secs = Math.floor(diff % 60);
     return `${mins}m ${secs.toString().padStart(2, '0')}s`;
+}
+
+function getAge(createdAt) {
+    if (!createdAt) return "Unknown";
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - createdAt;
+
+    if (diff < 60) return `${diff}s`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`;
 }
 
 // Global store for environments to allow smooth timer updates
@@ -407,11 +417,12 @@ function getEnvs() {
         const output = document.getElementById("output");
         let html = "";
 
-        if (!data[user] || data[user].length === 0) {
+        const lowerUser = user.toLowerCase();
+        if (!data[lowerUser] || data[lowerUser].length === 0) {
             currentEnvs = [];
             html = "<div style='text-align: center; color: #64748b; padding: 20px 0;'>No active environments detected.<br><small>Provision a new stack above to begin.</small></div>";
         } else {
-            currentEnvs = data[user];
+            currentEnvs = data[lowerUser];
             currentEnvs.forEach(env => {
                 const timeLeftStr = getTimeLeft(env.created_at);
                 const isExpired = timeLeftStr === "Expired";
@@ -451,7 +462,10 @@ function getEnvs() {
                         </div>
                         <p>Framework: <b>${env.stack.toUpperCase()}</b></p>
                         <p>Access Port: <code>${env.port}</code></p>
-                        <p class="timer" id="timer-${env.name}">⏳ Auto-delete in: ${timeLeft}</p>
+                        <p style="font-size: 13px; color: #94a3b8; margin-top: 8px;">
+                            🕒 Age: <b>${getAge(env.created_at)}</b> | 
+                            <span class="timer" id="timer-${env.name}" style="color: #facc15;">⏳ TTL: ${timeLeftStr}</span>
+                        </p>
                         ${errorHtml}
                     </div>
                     <div class="env-actions">
