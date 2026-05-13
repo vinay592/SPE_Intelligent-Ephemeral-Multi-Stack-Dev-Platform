@@ -187,9 +187,10 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                curl -X POST http://localhost:5001/create-env \
+                echo "🚀 Deploying Dashboard Environment..."
+                curl -X POST http://localhost:5002/create-env \
                 -H "Content-Type: application/json" \
-                -d "{\\"stack\\":\\"${STACK}\\",\\"user\\":\\"${USER}\\",\\"image\\":\\"${IMAGE_NAME}:latest\\"}"
+                -d '{"stack":"flask","user":"prod_user","image":"vinayvb18/flask-env:latest"}'
                 '''
             }
         }
