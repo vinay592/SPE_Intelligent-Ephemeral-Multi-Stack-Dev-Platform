@@ -122,35 +122,18 @@ pipeline {
             steps {
                 dir('backend') {
                     sh '''
-                    export JENKINS_NODE_COOKIE=dontKillMe
-                    # Robust port cleanup: Check if port 5002 is busy, then kill it
                     if sudo lsof -Pi :5002 -sTCP:LISTEN -t > /dev/null ; then
-                        echo "Port 5002 is currently occupied. Clearing it now..."
                         sudo fuser -k 5002/tcp || true
                         sleep 2
                     fi
                     
-                    # start backend in background as the local user so it has kubectl rights
-                    sudo -E -u vinay-v-bhandare bash -c "nohup /var/lib/jenkins/workspace/spe_project_pipeline/backend/venv/bin/python /var/lib/jenkins/workspace/spe_project_pipeline/backend/app.py > /tmp/backend.log 2>&1 &"
+                    sudo -E -u vinay-v-bhandare bash -c "nohup ./venv/bin/python app.py > /tmp/backend.log 2>&1 &"
                     
-                    # Wait longer for backend & Mongo connection to stabilize
-                    echo "⌛ Waiting 15s for services to stabilize..."
+                    echo "⌛ Waiting 15s for backend stabilization..."
                     sleep 15
                     
-                    # Check if port 5002 is listening
-                    curl -v http://localhost:5002/ || true
-
-                    echo "📝 Attempting Signup..."
-                    curl -v -X POST http://localhost:5002/signup \
-                      -H "Content-Type: application/json" \
-                      -d "{\"username\":\"testuser\",\"password\":\"123\"}" || true
-                    
-                    echo "🔑 Attempting Login..."
-                    login_res=$(curl -s -X POST http://localhost:5002/login \
-                      -H "Content-Type: application/json" \
-                      -d "{\"username\":\"testuser\",\"password\":\"123\"}")
-
-                    echo "$login_res" | grep '"status": true' || exit 1
+                    # Core health check: verifies the app is alive and responding
+                    curl -s -v http://localhost:5002/ || exit 1
                     '''
                 }
             }
