@@ -75,9 +75,14 @@ pipeline {
         stage('Start ELK Monitoring') {
             steps {
                 sh '''
-                # Aggressive cleanup to resolve container name conflicts
-                docker rm -f vault elasticsearch logstash kibana || true
-                docker-compose up -d
+                # Preserve vault to keep the data, only cleanup others
+                docker rm -f elasticsearch logstash kibana || true
+                
+                # Ensure vault is running without wiping it
+                if ! docker ps | grep vault > /dev/null; then
+                    docker-compose up -d vault
+                fi
+                docker-compose up -d elasticsearch logstash kibana
                 '''
             }
         }
@@ -142,11 +147,12 @@ pipeline {
         stage('Build & Push All Images') {
             steps {
                 sh '''
-                # SECURE STORAGE: Direct Container Access
-                echo "🔑 Fetching Docker Hub credentials from Vault container..."
+                # SECURE STORAGE: Direct Container Access with Auto-Seeding
+                echo "🔑 Ensuring Vault is seeded..."
+                sudo docker exec -e VAULT_TOKEN=root vault vault kv put secret/docker-hub password=Vinay_vb18 || true
                 
-                # We use 'docker exec' because we verified it works manually
-                DOCKER_PW=$(sudo docker exec -e VAULT_TOKEN=root vault vault kv get -field=password secret/docker-hub || echo "")
+                echo "🔑 Fetching Docker Hub credentials..."
+                DOCKER_PW=$(sudo docker exec -e VAULT_TOKEN=root vault vault kv get -field=password secret/docker-hub)
                 
                 if [ -z "$DOCKER_PW" ]; then
                     echo "❌ Failed to fetch password from Vault container!"
