@@ -100,6 +100,7 @@ pipeline {
                     kubectl apply -f k8s/config.yml
                     kubectl apply -f k8s/secrets.yml
                     kubectl apply -f k8s/mongo.yaml
+                    kubectl apply -f k8s/resource-quota.yaml
                 "
 
                 for i in {1..30}
@@ -171,7 +172,7 @@ pipeline {
             }
         }
 
-        stage('Security Scan (Trivy)') {//
+        stage('Security Scan (Trivy)') {
             steps {
                 sh '''
                 echo "--- Initiating Security Audit (Trivy) ---"
