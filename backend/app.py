@@ -405,6 +405,14 @@ def create_env():
             "created_at": time.time()
         })
 
+        logging.info(f"CREATE ENV TRIGGERED: {env_name} by {user}")
+        log_to_es_async(index_name="app-logs", doc={
+            "event": "create_env",
+            "env": env_name,
+            "user": user,
+            "stack": stack
+        })
+
         # Run kubectl in background so HTTP response is INSTANT
         def provision_k8s():
             try:
