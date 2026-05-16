@@ -90,13 +90,27 @@ pipeline {
         stage('Ensure Mongo Ready') {
             steps {
                 sh '''
-                echo "🔑 Seeding Vault with MongoDB Connection String..."
-                sudo docker exec -e VAULT_TOKEN=root vault vault kv put secret/mongo uri="mongodb://localhost:27017" || true
+                # ── Step 1: Seed Vault with the K8s-internal service DNS name ──
+                # IMPORTANT: use the K8s Service DNS (mongo-svc) NOT localhost.
+                # The backend pod resolves this name inside the cluster.
+                # localhost:27017 is only valid for the port-forward tunnel below.
+                echo "🔑 Seeding Vault with MongoDB K8s service URI..."
+                sudo docker exec -e VAULT_TOKEN=root vault \
+                    vault kv put secret/mongo uri="mongodb://mongo-svc:27017" || true
 
-                echo "🔑 Fetching MongoDB String from Vault..."
-                VAULT_MONGO_URI=$(sudo docker exec -e VAULT_TOKEN=root vault vault kv get -field=uri secret/mongo)
+                echo "🔑 Fetching MongoDB URI from Vault..."
+                VAULT_MONGO_URI=$(sudo docker exec -e VAULT_TOKEN=root vault \
+                    vault kv get -field=uri secret/mongo)
+
+                if [ -z "$VAULT_MONGO_URI" ]; then
+                    echo "❌ Failed to fetch MongoDB URI from Vault!"
+                    exit 1
+                fi
+                echo "✅ Vault returned: $VAULT_MONGO_URI"
+
                 B64_MONGO=$(echo -n "$VAULT_MONGO_URI" | base64 -w 0)
 
+                # ── Step 2: Generate the Kubernetes Secret from Vault value ──
                 echo "🔑 Generating Dynamic k8s/secrets.yml..."
                 cat <<EOF > k8s/secrets.yml
 apiVersion: v1
@@ -106,15 +120,14 @@ metadata:
   namespace: dev-platform
 type: Opaque
 data:
-  # Dynamically generated from HashiCorp Vault
   MONGO_URI: $B64_MONGO
 EOF
 
-                # Run cluster commands securely as your local user to bypass folder lockouts
+                # ── Step 3: Apply all manifests ──
                 sudo -u vinay-v-bhandare bash -ec "
                     minikube status || minikube start --driver=docker
 
-                    kubectl get namespace dev-platform || kubectl create namespace dev-platform
+                    kubectl get namespace dev-platform 2>/dev/null || kubectl create namespace dev-platform
                     minikube addons list | grep metrics-server | grep enabled || minikube addons enable metrics-server
 
                     kubectl apply -f k8s/config.yml
@@ -123,23 +136,50 @@ EOF
                     kubectl apply -f k8s/resource-quota.yaml
                 "
 
-                for i in {1..30}
-                do
-                    status=$(sudo -u vinay-v-bhandare kubectl get pods -n dev-platform -l app=mongo -o jsonpath="{.items[0].status.phase}" 2>/dev/null || echo "NotReady")
+                # ── Step 4: Wait for MongoDB pod to be fully ready ──
+                # Use kubectl wait for ContainersReady condition (much more reliable
+                # than polling status.phase which stays 'Running' even during init).
+                echo "⏳ Waiting for MongoDB pod to become ContainersReady (up to 3 min)..."
+                sudo -u vinay-v-bhandare kubectl wait pod \
+                    -l app=mongo \
+                    -n dev-platform \
+                    --for=condition=ContainersReady \
+                    --timeout=180s
 
-                    if [ "$status" = "Running" ]
-                    then
-                        echo "Mongo ready"
+                if [ $? -ne 0 ]; then
+                    echo "❌ MongoDB pod did not become ready in time. Pod status:"
+                    sudo -u vinay-v-bhandare kubectl get pods -n dev-platform -l app=mongo -o wide
+                    sudo -u vinay-v-bhandare kubectl describe pod -l app=mongo -n dev-platform | tail -30
+                    exit 1
+                fi
+                echo "✅ MongoDB pod is ContainersReady."
+
+                # ── Step 5: Start port-forward for backend localhost access ──
+                # Kill any stale tunnels first
+                sudo -u vinay-v-bhandare pkill -f "kubectl port-forward.*mongo-svc" || true
+                sleep 2
+
+                # JENKINS_NODE_COOKIE=dontKillMe prevents Jenkins from killing
+                # background processes when the step ends.
+                sudo -u vinay-v-bhandare bash -c \
+                    "JENKINS_NODE_COOKIE=dontKillMe nohup kubectl port-forward svc/mongo-svc 27017:27017 -n dev-platform > /tmp/mongo-pf.log 2>&1 &"
+
+                # ── Step 6: Verify the tunnel is actually accepting TCP connections ──
+                # Poll up to 30s instead of a blind sleep.
+                echo "⏳ Waiting for port-forward tunnel on localhost:27017..."
+                for i in $(seq 1 30); do
+                    if nc -z 127.0.0.1 27017 2>/dev/null; then
+                        echo "✅ MongoDB port-forward is live on localhost:27017"
                         break
                     fi
-
-                    sleep 3
+                    if [ "$i" -eq 30 ]; then
+                        echo "❌ Timed out waiting for port-forward. Log:"
+                        cat /tmp/mongo-pf.log || true
+                        exit 1
+                    fi
+                    echo "   Attempt $i/30 – waiting..."
+                    sleep 1
                 done
-
-                sudo -u vinay-v-bhandare pkill -f "kubectl port-forward" || true
-
-                sudo -u vinay-v-bhandare JENKINS_NODE_COOKIE=dontKillMe bash -c "nohup kubectl port-forward svc/mongo-svc 27017:27017 -n dev-platform > /tmp/mongo.log 2>&1 &"
-                sleep 5
                 '''
             }
         }
