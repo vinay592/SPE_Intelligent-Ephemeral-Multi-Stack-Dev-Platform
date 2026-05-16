@@ -31,7 +31,7 @@ minikube start --driver=docker --memory=4096 --cpus=4
 minikube addons enable metrics-server
 
 # 2. Launch Elastic Stack & Vault
-docker-compose up -d
+docker-compose up -d,
 ```
 **Verification**: Check `http://localhost:5601` for Kibana (Wait ~2 mins for initialization).
 
