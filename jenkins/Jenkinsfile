@@ -90,13 +90,16 @@ pipeline {
         stage('Ensure Mongo Ready') {
             steps {
                 sh '''
-                # ── Step 1: Seed Vault with the K8s-internal service DNS name ──
-                # IMPORTANT: use the K8s Service DNS (mongo-svc) NOT localhost.
-                # The backend pod resolves this name inside the cluster.
-                # localhost:27017 is only valid for the port-forward tunnel below.
-                echo "🔑 Seeding Vault with MongoDB K8s service URI..."
+                # ── Step 1: Seed Vault with the correct MongoDB URI ──
+                # WHY localhost?
+                #   The backend (app.py) runs on the HOST machine, NOT inside a K8s pod.
+                #   mongo-svc is a K8s-internal DNS name — only pods inside the cluster
+                #   can resolve it.  From the host, we rely on the port-forward tunnel
+                #   (Step 5) which maps  localhost:27017 → mongo-svc:27017.
+                #   So the URI stored here (and decoded by the backend) must be localhost.
+                echo "🔑 Seeding Vault with MongoDB URI (host-accessible via port-forward)..."
                 sudo docker exec -e VAULT_TOKEN=root vault \
-                    vault kv put secret/mongo uri="mongodb://mongo-svc:27017" || true
+                    vault kv put secret/mongo uri="mongodb://localhost:27017" || true
 
                 echo "🔑 Fetching MongoDB URI from Vault..."
                 VAULT_MONGO_URI=$(sudo docker exec -e VAULT_TOKEN=root vault \
