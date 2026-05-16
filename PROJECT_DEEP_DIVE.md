@@ -23,7 +23,7 @@ A high-performance "Glassmorphism" dashboard for managing the cloud stacks.
 
 *   **WHAT it does**: Provides a visual interface to launch, delete, and monitor environments. Includes a **Stress Test** feature to demonstrate HPA.
 *   **TRIGGER**: When a user clicks **"Deploy X Stack"**, a JavaScript fetch call triggers the backend's provisioning pipeline.
-*   **HOW it works**: Uses a state-driven approach where buttons transform based on the environment's current status (PROVISIONING, RUNNING, or ERROR).
+*   **HOW it works**: Uses a state-driven approach where buttons transform based on the environment's current status (PROVISIONING, RUNNING, or ERROR)a.
 
 ---
 
