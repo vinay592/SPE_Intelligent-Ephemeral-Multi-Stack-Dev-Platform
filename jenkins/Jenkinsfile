@@ -212,32 +212,44 @@ EOF
             }
         }
 
-        stage('Build & Push All Images') {
-            steps {
-                sh '''
-                # SECURE STORAGE: Direct Container Access with Auto-Seeding
-                echo "🔑 Ensuring Vault is seeded..."
-                sudo docker exec -e VAULT_TOKEN=root vault vault kv put secret/docker-hub password=Vinay_vb18 || true
-                
-                echo "🔑 Fetching Docker Hub credentials..."
-                DOCKER_PW=$(sudo docker exec -e VAULT_TOKEN=root vault vault kv get -field=password secret/docker-hub)
-                
-                if [ -z "$DOCKER_PW" ]; then
-                    echo "❌ Failed to fetch password from Vault container!"
-                    exit 1
-                fi
-                echo "✅ Credentials retrieved successfully."
-                echo "$DOCKER_PW" | docker login -u vinayvb18 --password-stdin
-                
-                # Portable loop for all 4 stacks
-                for stack in flask java mern ml; do
-                    echo "--- Building and Pushing: $stack ---"
-                    docker build -t "vinayvb18/${stack}-env:latest" "templates/${stack}"
-                    docker push "vinayvb18/${stack}-env:latest"
-                done
-                '''
-            }
-        }
+        stage('Build & Push Changed Images') {
+    steps {
+        sh '''
+        echo "🔑 Ensuring Vault is seeded..."
+        sudo docker exec -e VAULT_TOKEN=root vault \
+        vault kv put secret/docker-hub password=Vinay_vb18 || true
+
+        echo "🔑 Fetching Docker Hub credentials..."
+        DOCKER_PW=$(sudo docker exec -e VAULT_TOKEN=root vault \
+        vault kv get -field=password secret/docker-hub)
+
+        echo "$DOCKER_PW" | docker login -u vinayvb18 --password-stdin
+
+        echo "🔍 Checking changed files..."
+
+        CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+
+        echo "$CHANGED_FILES"
+
+        for stack in flask java mern ml; do
+
+            if echo "$CHANGED_FILES" | grep -q "templates/${stack}/"; then
+                echo "🚀 Changes detected in $stack"
+
+                docker build \
+                -t "vinayvb18/${stack}-env:latest" \
+                "templates/${stack}"
+
+                docker push "vinayvb18/${stack}-env:latest"
+
+            else
+                echo "⏭️ No changes in $stack → skipping build"
+            fi
+
+        done
+        '''
+    }
+}
 
         stage('Security Scan (Trivy)') {
             steps {
