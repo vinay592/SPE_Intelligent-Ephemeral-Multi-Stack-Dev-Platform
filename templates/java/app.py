@@ -248,7 +248,7 @@ def run():
                 ["javac", file_path],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=180
             )
 
             if compile_process.stderr:
@@ -267,7 +267,7 @@ def run():
                 "error": run_process.stderr[:10000]
             })
     except subprocess.TimeoutExpired:
-        return jsonify({"error": "[TIMEOUT] Execution exceeded 30s limit. Check for infinite loops!"})
+        return jsonify({"error": "[TIMEOUT] Execution exceeded 180s limit. Check for infinite loops!"})
     except Exception as e:
         return jsonify({"error": f"[SYSTEM ERROR] {str(e)}"})
 

@@ -35,7 +35,7 @@ Each stack is a fully isolated, containerized web-IDE based on Monaco Editor.
 *   **STABILITY GUARDRAILS** (Triggered on every "RUN" click):
     *   **Execution Timeout (30s)**: Automatically kills any process (like infinite loops) that exceeds the limit.
     *   **Output Truncation (10KB)**: Limits the stdout/stderr buffer to prevent memory exhaustion and pod crashes.
-*   **HOW it works**: A hidden Flask/Node.js backend inside the pod receives the code via POST, writes it to a temporary file, executes it via a subprocess, and returns the output to the Monaco console.
+*   **HOW it works**: A hidden Flask/Node.js backend inside the pod receives the code via POST, writes it to a temporary file, executes it via a subprocess, and returns the output to the Monaco console ok.
 
 ---
 
