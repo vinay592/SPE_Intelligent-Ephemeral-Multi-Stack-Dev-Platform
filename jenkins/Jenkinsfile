@@ -90,6 +90,26 @@ pipeline {
         stage('Ensure Mongo Ready') {
             steps {
                 sh '''
+                echo "🔑 Seeding Vault with MongoDB Connection String..."
+                sudo docker exec -e VAULT_TOKEN=root vault vault kv put secret/mongo uri="mongodb://localhost:27017" || true
+
+                echo "🔑 Fetching MongoDB String from Vault..."
+                VAULT_MONGO_URI=$(sudo docker exec -e VAULT_TOKEN=root vault vault kv get -field=uri secret/mongo)
+                B64_MONGO=$(echo -n "$VAULT_MONGO_URI" | base64 -w 0)
+
+                echo "🔑 Generating Dynamic k8s/secrets.yml..."
+                cat <<EOF > k8s/secrets.yml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dev-platform-secrets
+  namespace: dev-platform
+type: Opaque
+data:
+  # Dynamically generated from HashiCorp Vault
+  MONGO_URI: $B64_MONGO
+EOF
+
                 # Run cluster commands securely as your local user to bypass folder lockouts
                 sudo -u vinay-v-bhandare bash -ec "
                     minikube status || minikube start --driver=docker
@@ -133,7 +153,11 @@ pipeline {
                         sleep 2
                     fi
                     
-                    sudo -E -u vinay-v-bhandare bash -c "nohup ./venv/bin/python app.py > /tmp/backend.log 2>&1 &"
+                    echo "🔐 Extracting MONGO_URI from Kubernetes Secret..."
+                    DB_URL=$(sudo -u vinay-v-bhandare kubectl get secret dev-platform-secrets -n dev-platform -o jsonpath="{.data.MONGO_URI}" | base64 --decode)
+                    echo "✅ Passing Secure Secret to Backend Context"
+                    
+                    sudo -E -u vinay-v-bhandare bash -c "export MONGO_URI=\\"$DB_URL\\" && nohup ./venv/bin/python app.py > /tmp/backend.log 2>&1 &"
                     
                     echo "⌛ Waiting 15s for backend stabilization..."
                     sleep 15
