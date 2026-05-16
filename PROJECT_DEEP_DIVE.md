@@ -28,7 +28,7 @@ A high-performance "Glassmorphism" dashboard for managing the cloud stacks.
 ---
 
 ## 📦 3. Interactive Ephemeral Stacks (The "Environments")
-### Directory: `templates/` (Flask, Java, MERN, ML)x
+### Directory: `templates/` (Flask, Java, MERN, ML)
 Each stack is a fully isolated, containerized web-IDE based on Monaco Editor.
 
 *   **WHAT they do**: Provide a real-time coding environment where users can write and execute code within the browser.
